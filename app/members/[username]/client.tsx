@@ -147,7 +147,7 @@ export default function MemberProfileClient({ username }: { username: string }) 
           title: `${followerProfile.username} is now following you`,
           body: null,
           href: `/members/${followerProfile.username}`,
-        }).throwOnError().catch(() => {})
+        })
       }
     }
 
