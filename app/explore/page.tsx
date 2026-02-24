@@ -27,6 +27,7 @@ function ExploreContent() {
   const [selectedGenres, setSelectedGenres] = useState<number[]>([])
   const [influenceSearch, setInfluenceSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [followerCounts, setFollowerCounts] = useState<Record<string, number>>({})
   const searchParams = useSearchParams()
   const supabase = createClient()
 
@@ -66,12 +67,35 @@ function ExploreContent() {
       let query = supabase.from('bands').select('*').eq('is_published', true).in('id', bandIds)
       if (selectedGenres.length > 0) query = query.overlaps('genre_ids', selectedGenres)
       const { data } = await query.order('name')
-      setBands(data || [])
+      const result = data || []
+      setBands(result)
+      if (result.length > 0) {
+        const ids = result.map((b: any) => b.id)
+        const { data: follows } = await supabase.from('follows').select('band_id').in('band_id', ids)
+        const counts: Record<string, number> = {}
+        follows?.forEach((f: any) => { counts[f.band_id] = (counts[f.band_id] || 0) + 1 })
+        setFollowerCounts(counts)
+      }
     } else {
       let query = supabase.from('bands').select('*').eq('is_published', true)
       if (selectedGenres.length > 0) query = query.overlaps('genre_ids', selectedGenres)
       const { data } = await query.order('name')
-      setBands(data || [])
+      const result = data || []
+      setBands(result)
+
+      // Fetch follower counts for these bands
+      if (result.length > 0) {
+        const bandIds = result.map((b: any) => b.id)
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('band_id')
+          .in('band_id', bandIds)
+        const counts: Record<string, number> = {}
+        follows?.forEach((f: any) => {
+          counts[f.band_id] = (counts[f.band_id] || 0) + 1
+        })
+        setFollowerCounts(counts)
+      }
     }
     setLoading(false)
   }
@@ -188,9 +212,14 @@ function ExploreContent() {
                     <h3 className="text-lg font-black uppercase tracking-wide group-hover:text-red-500 transition-colors">
                       {band.name}
                     </h3>
-                    <div className="flex gap-3 text-xs text-zinc-600 mt-1">
+                    <div className="flex gap-3 text-xs text-zinc-600 mt-1 flex-wrap">
                       {band.country && <span>{band.country}</span>}
                       {band.year_formed && <span>Est. {band.year_formed}</span>}
+                      {(followerCounts[band.id] || 0) > 0 && (
+                        <span className="text-zinc-500">
+                          {followerCounts[band.id]} follower{followerCounts[band.id] !== 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {getBandGenres(band.genre_ids).slice(0, 3).map(g => (

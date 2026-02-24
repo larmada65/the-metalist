@@ -142,7 +142,7 @@ export default function ReviewsPage() {
                   className="border border-zinc-800 rounded-xl p-5 hover:border-zinc-700 transition-colors">
                   <div className="flex gap-4">
                     {/* Cover */}
-                    <Link href={`/bands/${band?.slug}`}
+                    <Link href={`/reviews/${review.id}`}
                       className="w-14 h-14 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {release?.cover_url
                         ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
@@ -168,7 +168,10 @@ export default function ReviewsPage() {
 
                       {/* Review title + rating */}
                       <div className="flex items-center gap-2 mt-3 flex-wrap">
-                        <p className="font-black uppercase tracking-wide text-sm">{review.title}</p>
+                        <Link href={`/reviews/${review.id}`}
+                          className="font-black uppercase tracking-wide text-sm hover:text-red-500 transition-colors">
+                          {review.title}
+                        </Link>
                         {review.rating !== null && (
                           <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${
                             review.rating >= 15 ? 'text-green-400 bg-green-950/40 border-green-900/50'

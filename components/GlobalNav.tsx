@@ -37,6 +37,7 @@ const NAV_LINKS = [
   { href: '/activity', label: 'Activity' },
   { href: '/reviews',  label: 'Reviews' },
   { href: '/members',  label: 'Members' },
+  { href: '/feed',     label: 'My Feed' },
 ]
 
 export default function GlobalNav({ backHref, backLabel, username, onLogout, currentUser }: GlobalNavProps) {
