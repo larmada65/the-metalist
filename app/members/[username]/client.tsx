@@ -259,6 +259,16 @@ export default function MemberProfileClient({ username }: { username: string }) 
               Follow
             </Link>
           )}
+
+          {isOwnProfile && (
+            <Link href="/dashboard/profile"
+              className="ml-auto px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-red-500 hover:text-white transition-colors flex items-center gap-2">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828A2 2 0 0110 16.414H8v-2a2 2 0 01.586-1.414z" />
+              </svg>
+              Edit Profile
+            </Link>
+          )}
         </div>
 
         {/* ── Bio ────────────────────────────────────────────────── */}
