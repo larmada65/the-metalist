@@ -27,6 +27,12 @@ export default function ProfileSettings() {
   const [profileSuccess, setProfileSuccess] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
 
+  // Avatar
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+
   // Password fields
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -46,7 +52,7 @@ export default function ProfileSettings() {
 
       const [{ data: profile }, { data: genreData }] = await Promise.all([
         supabase.from('profiles')
-          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, genre_ids')
+          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, genre_ids, avatar_url')
           .eq('id', user.id).single(),
         supabase.from('genres_list').select('id, name').order('name'),
       ])
@@ -62,6 +68,8 @@ export default function ProfileSettings() {
         setIsProducer(profile.is_producer ?? false)
         setIsSoundEngineer(profile.is_sound_engineer ?? false)
         setGenreIds(profile.genre_ids || [])
+        setAvatarUrl(profile.avatar_url || null)
+        setAvatarPreview(profile.avatar_url || null)
       }
       if (genreData) setAllGenres(genreData)
       setLoading(false)
@@ -69,10 +77,40 @@ export default function ProfileSettings() {
     load()
   }, [])
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { setAvatarError('Photo must be under 2MB.'); return }
+    if (!file.type.startsWith('image/')) { setAvatarError('File must be an image.'); return }
+    setAvatarError(null)
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+  }
+
   const handleSaveProfile = async () => {
     if (!userId) return
     setSavingProfile(true)
     setProfileError(null)
+
+    let newAvatarUrl = avatarUrl
+    if (avatarFile) {
+      const ext = avatarFile.name.split('.').pop()
+      const path = `avatars/${userId}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('band-logos')
+        .upload(path, avatarFile, { upsert: true })
+      if (uploadError) {
+        setProfileError('Failed to upload photo: ' + uploadError.message)
+        setSavingProfile(false)
+        return
+      }
+      const { data: { publicUrl } } = supabase.storage
+        .from('band-logos')
+        .getPublicUrl(path)
+      newAvatarUrl = publicUrl
+      setAvatarUrl(publicUrl)
+      setAvatarFile(null)
+    }
 
     const { error } = await supabase
       .from('profiles')
@@ -87,6 +125,7 @@ export default function ProfileSettings() {
         is_producer: isProducer,
         is_sound_engineer: isSoundEngineer,
         genre_ids: genreIds.length > 0 ? genreIds : null,
+        avatar_url: newAvatarUrl,
       })
       .eq('id', userId)
 
@@ -153,6 +192,40 @@ export default function ProfileSettings() {
           <div className="border border-zinc-800 rounded-xl p-6">
             <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-5">Profile Info</h2>
             <div className="flex flex-col gap-4">
+
+              {/* Avatar upload */}
+              <div>
+                <label className={labelClass}>Profile Photo</label>
+                <div className="flex items-center gap-5">
+                  {/* Preview */}
+                  <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                    {avatarPreview
+                      ? <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                      : <span className="text-2xl text-zinc-600">👤</span>
+                    }
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('avatar-input')?.click()}
+                      className="px-4 py-2 border border-zinc-700 rounded-lg text-xs text-zinc-400 hover:border-red-500 hover:text-white transition-colors uppercase tracking-widest w-fit">
+                      {avatarPreview ? 'Change photo' : 'Upload photo'}
+                    </button>
+                    {avatarPreview && (
+                      <button
+                        type="button"
+                        onClick={() => { setAvatarFile(null); setAvatarPreview(null); setAvatarUrl(null) }}
+                        className="text-xs text-zinc-700 hover:text-red-400 transition-colors uppercase tracking-widest">
+                        Remove
+                      </button>
+                    )}
+                    <p className="text-xs text-zinc-700">Square image, max 2MB</p>
+                    {avatarError && <p className="text-xs text-red-400">{avatarError}</p>}
+                  </div>
+                </div>
+                <input id="avatar-input" type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>First Name</label>

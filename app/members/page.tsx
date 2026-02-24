@@ -13,6 +13,7 @@ type Member = {
   is_producer: boolean
   is_sound_engineer: boolean
   genre_ids: number[] | null
+  avatar_url: string | null
   band_count: number
 }
 
@@ -38,7 +39,7 @@ export default function MembersPage() {
       const [{ data: profileData }, { data: genreData }, { data: membershipData }] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, username, first_name, last_name, bio, is_producer, is_sound_engineer, genre_ids')
+          .select('id, username, first_name, last_name, bio, is_producer, is_sound_engineer, genre_ids, avatar_url')
           .order('username'),
         supabase.from('genres_list').select('id, name').order('name'),
         supabase
@@ -177,9 +178,12 @@ export default function MembersPage() {
                 <Link key={member.id} href={`/members/${member.username}`}
                   className="border border-zinc-800 rounded-xl p-4 flex items-center gap-3 hover:border-zinc-600 transition-colors group">
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-base font-black select-none"
-                    style={{ backgroundColor: avatarBg(member.username) }}>
-                    {initial}
+                    className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0 text-base font-black select-none"
+                    style={member.avatar_url ? {} : { backgroundColor: avatarBg(member.username) }}>
+                    {member.avatar_url
+                      ? <img src={member.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                      : initial
+                    }
                   </div>
                   <div className="min-w-0">
                     <p className="font-black uppercase tracking-wide text-sm group-hover:text-red-500 transition-colors truncate">

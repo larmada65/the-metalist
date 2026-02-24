@@ -51,21 +51,35 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
-  const wrapperRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
 
-  // Close mobile menu on route change
-  useEffect(() => { setMobileOpen(false) }, [pathname])
+  // Close menus on route change
+  useEffect(() => { setMobileOpen(false); setSearchOpen(false) }, [pathname])
 
-  // Lock body scroll when mobile menu is open
+  // Lock body scroll when mobile menu or search is open
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? 'hidden' : ''
+    document.body.style.overflow = (mobileOpen || searchOpen) ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [mobileOpen])
+  }, [mobileOpen, searchOpen])
+
+  // Focus search input when overlay opens
+  useEffect(() => {
+    if (searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50)
+    else { setQuery(''); setResults([]); setOpen(false) }
+  }, [searchOpen])
+
+  // ESC closes search overlay
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setSearchOpen(false) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   const fetchUserData = async (userId: string) => {
     const { data: profile } = await supabase
@@ -101,16 +115,6 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Close search dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   const resolvedUser = currentUser !== undefined ? currentUser : selfUser
   const resolvedUsername = username || selfUsername
@@ -224,52 +228,6 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
           ))}
         </div>
 
-        {/* Search bar — desktop only */}
-        <div ref={wrapperRef} className="hidden md:block flex-1 max-w-md relative">
-          <form onSubmit={handleSubmit}>
-            <input
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onFocus={() => results.length > 0 && setOpen(true)}
-              placeholder="Search bands, releases, musicians..."
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition-colors placeholder-zinc-600"
-            />
-          </form>
-
-          {open && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl z-50">
-              {loading ? (
-                <p className="text-xs text-zinc-600 px-4 py-3 animate-pulse">Searching...</p>
-              ) : (
-                <>
-                  {results.map((result, i) => (
-                    <button key={i} onClick={() => handleSelect(result.href)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors text-left border-b border-zinc-800 last:border-0">
-                      <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center text-sm">
-                        {result.image
-                          ? <img src={result.image} alt={result.label} className="w-full h-full object-cover" />
-                          : <span>{typeIcon(result.type)}</span>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{result.label}</p>
-                        <p className="text-xs text-zinc-500 truncate">{result.sublabel}</p>
-                      </div>
-                      <span className="text-xs text-zinc-700 uppercase tracking-widest shrink-0">{result.type}</span>
-                    </button>
-                  ))}
-                  {query.length >= 2 && (
-                    <button onClick={() => { setOpen(false); router.push(`/search?q=${encodeURIComponent(query)}`) }}
-                      className="w-full px-4 py-3 text-xs text-red-400 hover:text-red-300 hover:bg-zinc-900 transition-colors text-left">
-                      See all results for "{query}" →
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* Right side */}
         <div className="flex items-center gap-3 md:gap-4 ml-auto shrink-0">
           {resolvedUser ? (
@@ -340,6 +298,16 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
               </Link>
             </>
           )}
+
+          {/* Search icon — always visible */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="p-2 text-zinc-400 hover:text-white transition-colors"
+            aria-label="Search">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+          </button>
 
           {/* Hamburger button — mobile only */}
           <button
@@ -437,6 +405,87 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
                     Join the Underground
                   </Link>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-screen search overlay */}
+      {searchOpen && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+          {/* Search bar row */}
+          <div className="border-b border-zinc-800 px-4 md:px-6 py-4 flex items-center gap-4">
+            <svg className="w-5 h-5 text-zinc-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <form onSubmit={handleSubmit} className="flex-1">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search bands, releases, musicians..."
+                className="w-full bg-transparent text-white text-lg md:text-xl focus:outline-none placeholder-zinc-700"
+              />
+            </form>
+            {/* ESC hint — desktop */}
+            <button onClick={() => setSearchOpen(false)}
+              className="text-xs text-zinc-600 hover:text-zinc-400 uppercase tracking-widest hidden md:block shrink-0">
+              ESC
+            </button>
+            {/* Close icon — mobile */}
+            <button onClick={() => setSearchOpen(false)} className="md:hidden text-zinc-500 hover:text-white p-1 shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Results */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-2xl mx-auto px-4 md:px-6 py-6">
+              {loading && (
+                <p className="text-zinc-600 animate-pulse text-sm uppercase tracking-widest">Searching...</p>
+              )}
+
+              {!loading && results.length > 0 && (
+                <div className="flex flex-col">
+                  {results.map((result, i) => (
+                    <button key={i}
+                      onClick={() => { handleSelect(result.href); setSearchOpen(false) }}
+                      className="flex items-center gap-4 py-4 border-b border-zinc-900 hover:bg-zinc-900/40 transition-colors text-left px-2 rounded-lg">
+                      <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                        {result.image
+                          ? <img src={result.image} alt={result.label} className="w-full h-full object-cover" />
+                          : <span className="text-lg">{typeIcon(result.type)}</span>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-white truncate">{result.label}</p>
+                        <p className="text-sm text-zinc-500 truncate">{result.sublabel}</p>
+                      </div>
+                      <span className="text-xs text-zinc-700 uppercase tracking-widest shrink-0">{result.type}</span>
+                    </button>
+                  ))}
+                  {query.length >= 2 && (
+                    <button
+                      onClick={() => { setSearchOpen(false); router.push(`/search?q=${encodeURIComponent(query)}`) }}
+                      className="mt-4 text-sm text-red-400 hover:text-red-300 transition-colors text-left py-3">
+                      See all results for "{query}" →
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {!loading && query.length >= 2 && results.length === 0 && (
+                <p className="text-zinc-600 text-sm">No results for "{query}"</p>
+              )}
+
+              {!loading && query.length < 2 && (
+                <p className="text-zinc-700 text-sm uppercase tracking-widest">
+                  Start typing to search the underground...
+                </p>
               )}
             </div>
           </div>

@@ -16,6 +16,7 @@ type Profile = {
   website_url: string | null
   is_producer: boolean
   is_sound_engineer: boolean
+  avatar_url: string | null
 }
 
 type Membership = {
@@ -68,7 +69,7 @@ export default function MemberProfileClient({ username }: { username: string }) 
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer')
+        .select('id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, avatar_url')
         .eq('username', username)
         .single()
 
@@ -188,11 +189,14 @@ export default function MemberProfileClient({ username }: { username: string }) 
 
         {/* ── Profile header ─────────────────────────────────────── */}
         <div className="flex items-start gap-6 mb-6">
-          {/* Initials avatar */}
+          {/* Avatar */}
           <div
-            className="w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 text-3xl font-black select-none"
-            style={{ backgroundColor: avatarBg(p.username) }}>
-            {initial}
+            className="w-20 h-20 rounded-2xl shrink-0 overflow-hidden flex items-center justify-center text-3xl font-black select-none"
+            style={p.avatar_url ? {} : { backgroundColor: avatarBg(p.username) }}>
+            {p.avatar_url
+              ? <img src={p.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+              : initial
+            }
           </div>
 
           <div className="min-w-0 flex-1">
