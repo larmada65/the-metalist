@@ -12,7 +12,10 @@ type ActivityItem = {
   subtitle: string
   href: string
   image: string | null
+  genreIds: number[]
 }
+
+type Genre = { id: number; name: string }
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -42,6 +45,8 @@ export default function ActivityPage() {
   const [items, setItems] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<ActivityItem['type'] | 'all'>('all')
+  const [selectedGenre, setSelectedGenre] = useState<number | null>(null)
+  const [allGenres, setAllGenres] = useState<Genre[]>([])
   const supabase = createClient()
 
   useEffect(() => {
@@ -51,31 +56,33 @@ export default function ActivityPage() {
         { data: releases },
         { data: shows },
         { data: members },
+        { data: genreData },
       ] = await Promise.all([
         supabase.from('bands')
-          .select('id, name, slug, logo_url, country, created_at')
+          .select('id, name, slug, logo_url, country, genre_ids, created_at')
           .eq('is_published', true)
           .order('created_at', { ascending: false })
           .limit(15),
         supabase.from('releases')
-          .select('id, title, release_type, cover_url, created_at, bands(name, slug)')
+          .select('id, title, release_type, cover_url, created_at, bands(name, slug, genre_ids)')
           .order('created_at', { ascending: false })
           .limit(15),
         supabase.from('shows')
-          .select('id, date, city, country, created_at, bands(name, slug, logo_url)')
+          .select('id, date, city, country, created_at, bands(name, slug, logo_url, genre_ids)')
           .order('created_at', { ascending: false })
           .limit(15),
         supabase.from('band_members')
-          .select('id, name, instrument, created_at, bands(name, slug, logo_url)')
+          .select('id, name, instrument, created_at, bands(name, slug, logo_url, genre_ids)')
           .eq('status', 'approved')
           .not('profile_id', 'is', null)
           .order('created_at', { ascending: false })
           .limit(15),
+        supabase.from('genres_list').select('id, name').order('name'),
       ])
 
       const feed: ActivityItem[] = []
 
-      bands?.forEach(b => feed.push({
+      bands?.forEach((b: any) => feed.push({
         id: `band-${b.id}`,
         type: 'band',
         created_at: b.created_at,
@@ -83,6 +90,7 @@ export default function ActivityPage() {
         subtitle: b.country || 'New band on the platform',
         href: `/bands/${b.slug}`,
         image: b.logo_url,
+        genreIds: b.genre_ids || [],
       }))
 
       releases?.forEach((r: any) => feed.push({
@@ -93,6 +101,7 @@ export default function ActivityPage() {
         subtitle: `${r.release_type}${r.bands?.name ? ` · ${r.bands.name}` : ''}`,
         href: `/bands/${r.bands?.slug}`,
         image: r.cover_url,
+        genreIds: r.bands?.genre_ids || [],
       }))
 
       shows?.forEach((s: any) => {
@@ -106,6 +115,7 @@ export default function ActivityPage() {
           subtitle: `${dateLabel} · ${s.city}${s.country ? `, ${s.country}` : ''}`,
           href: `/bands/${s.bands?.slug}`,
           image: s.bands?.logo_url,
+          genreIds: s.bands?.genre_ids || [],
         })
       })
 
@@ -117,16 +127,22 @@ export default function ActivityPage() {
         subtitle: `Joined ${m.bands?.name || 'a band'}${m.instrument ? ` · ${m.instrument}` : ''}`,
         href: `/bands/${m.bands?.slug}`,
         image: m.bands?.logo_url,
+        genreIds: m.bands?.genre_ids || [],
       }))
 
       feed.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       setItems(feed)
+      if (genreData) setAllGenres(genreData)
       setLoading(false)
     }
     load()
   }, [])
 
-  const filtered = filter === 'all' ? items : items.filter(i => i.type === filter)
+  const filtered = items
+    .filter(i => filter === 'all' || i.type === filter)
+    .filter(i => !selectedGenre || i.genreIds.includes(selectedGenre))
+
+  const activeGenres = allGenres.filter(g => items.some(i => i.genreIds.includes(g.id)))
 
   const counts = {
     band: items.filter(i => i.type === 'band').length,
@@ -158,7 +174,19 @@ export default function ActivityPage() {
 
         {/* Filter pills */}
         {!loading && items.length > 0 && (
-          <div className="flex gap-2 flex-wrap mb-10">
+          <div className="flex flex-col gap-3 mb-10">
+          {activeGenres.length > 0 && (
+            <div className="flex gap-2 flex-wrap items-center">
+              <span className="text-xs text-zinc-600 uppercase tracking-widest shrink-0">Genre:</span>
+              <button onClick={() => setSelectedGenre(null)}
+                className={pillClass(selectedGenre === null)}>All</button>
+              {activeGenres.map(g => (
+                <button key={g.id} onClick={() => setSelectedGenre(prev => prev === g.id ? null : g.id)}
+                  className={pillClass(selectedGenre === g.id)}>{g.name}</button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2 flex-wrap">
             <button onClick={() => setFilter('all')} className={pillClass(filter === 'all')}>
               All ({items.length})
             </button>
@@ -182,6 +210,7 @@ export default function ActivityPage() {
                 🤘 Members ({counts.member})
               </button>
             )}
+          </div>
           </div>
         )}
 

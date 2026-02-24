@@ -15,8 +15,11 @@ type Show = {
     name: string
     slug: string
     logo_url: string | null
+    genre_ids: number[] | null
   } | null
 }
+
+type Genre = { id: number; name: string }
 
 function parseDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -52,17 +55,22 @@ export default function ShowsPage() {
   const [shows, setShows] = useState<Show[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [selectedGenre, setSelectedGenre] = useState<number | null>(null)
+  const [allGenres, setAllGenres] = useState<Genre[]>([])
   const supabase = createClient()
 
   useEffect(() => {
     const load = async () => {
       const today = new Date().toISOString().split('T')[0]
-      const { data } = await supabase
-        .from('shows')
-        .select('id, date, city, country, venue, ticket_url, bands(name, slug, logo_url)')
-        .gte('date', today)
-        .order('date', { ascending: true })
+      const [{ data }, { data: genreData }] = await Promise.all([
+        supabase.from('shows')
+          .select('id, date, city, country, venue, ticket_url, bands(name, slug, logo_url, genre_ids)')
+          .gte('date', today)
+          .order('date', { ascending: true }),
+        supabase.from('genres_list').select('id, name').order('name'),
+      ])
       if (data) setShows(data as any)
+      if (genreData) setAllGenres(genreData)
       setLoading(false)
     }
     load()
@@ -70,9 +78,12 @@ export default function ShowsPage() {
 
   const countries = [...new Set(shows.map(s => s.country).filter(Boolean))].sort() as string[]
 
-  const filtered = selectedCountry
-    ? shows.filter(s => s.country === selectedCountry)
-    : shows
+  const filtered = shows
+    .filter(s => !selectedCountry || s.country === selectedCountry)
+    .filter(s => !selectedGenre || (s.bands?.genre_ids?.includes(selectedGenre) ?? false))
+
+  // Only genres represented in the loaded shows
+  const activeGenres = allGenres.filter(g => shows.some(s => s.bands?.genre_ids?.includes(g.id)))
 
   // Group by month for a calendar feel
   const grouped: Record<string, Show[]> = {}
@@ -110,6 +121,23 @@ export default function ShowsPage() {
                 <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Countries</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Genre filter */}
+        {activeGenres.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-3 mb-4" style={{ scrollbarWidth: 'none' }}>
+            <span className="text-xs text-zinc-600 uppercase tracking-widest shrink-0 self-center">Genre:</span>
+            <button onClick={() => setSelectedGenre(null)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shrink-0 border ${
+                selectedGenre === null ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+              }`}>All</button>
+            {activeGenres.map(g => (
+              <button key={g.id} onClick={() => setSelectedGenre(prev => prev === g.id ? null : g.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shrink-0 border ${
+                  selectedGenre === g.id ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                }`}>{g.name}</button>
+            ))}
           </div>
         )}
 

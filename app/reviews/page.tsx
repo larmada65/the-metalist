@@ -8,6 +8,7 @@ type ReviewEntry = {
   id: string
   title: string
   content: string
+  rating: number | null
   created_at: string
   profiles: { username: string } | null
   releases: {
@@ -15,9 +16,11 @@ type ReviewEntry = {
     title: string
     release_type: string
     cover_url: string | null
-    bands: { name: string; slug: string } | null
+    bands: { name: string; slug: string; genre_ids: number[] | null } | null
   } | null
 }
+
+type Genre = { id: number; name: string }
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -34,24 +37,33 @@ function timeAgo(dateStr: string): string {
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<ReviewEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedGenre, setSelectedGenre] = useState<number | null>(null)
+  const [allGenres, setAllGenres] = useState<Genre[]>([])
   const supabase = createClient()
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from('reviews')
-        .select(`
-          id, title, content, created_at,
-          profiles(username),
-          releases(id, title, release_type, cover_url, bands(name, slug))
-        `)
-        .order('created_at', { ascending: false })
-        .limit(30)
+      const [{ data }, { data: genreData }] = await Promise.all([
+        supabase.from('reviews')
+          .select(`id, title, content, rating, created_at, profiles(username), releases(id, title, release_type, cover_url, bands(name, slug, genre_ids))`)
+          .order('created_at', { ascending: false })
+          .limit(30),
+        supabase.from('genres_list').select('id, name').order('name'),
+      ])
       if (data) setReviews(data as any)
+      if (genreData) setAllGenres(genreData)
       setLoading(false)
     }
     load()
   }, [])
+
+  const activeGenres = allGenres.filter(g =>
+    reviews.some(r => (r.releases as any)?.bands?.genre_ids?.includes(g.id))
+  )
+
+  const filtered = reviews.filter(r =>
+    !selectedGenre || (r.releases as any)?.bands?.genre_ids?.includes(selectedGenre)
+  )
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -67,13 +79,30 @@ export default function ReviewsPage() {
           </p>
         </div>
 
-        {/* Stats */}
+        {/* Stats + genre filter */}
         {!loading && reviews.length > 0 && (
-          <div className="mb-10 border-b border-zinc-800 pb-8">
-            <p className="text-3xl font-black">{reviews.length}</p>
-            <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">
-              Review{reviews.length !== 1 ? 's' : ''} published
-            </p>
+          <div className="mb-10 border-b border-zinc-800 pb-8 flex flex-col gap-5">
+            <div>
+              <p className="text-3xl font-black">{reviews.length}</p>
+              <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">
+                Review{reviews.length !== 1 ? 's' : ''} published
+              </p>
+            </div>
+            {activeGenres.length > 0 && (
+              <div className="flex gap-2 flex-wrap items-center">
+                <span className="text-xs text-zinc-600 uppercase tracking-widest shrink-0">Genre:</span>
+                <button onClick={() => setSelectedGenre(null)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shrink-0 border ${
+                    selectedGenre === null ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  }`}>All</button>
+                {activeGenres.map(g => (
+                  <button key={g.id} onClick={() => setSelectedGenre(prev => prev === g.id ? null : g.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shrink-0 border ${
+                      selectedGenre === g.id ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                    }`}>{g.name}</button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -93,7 +122,7 @@ export default function ReviewsPage() {
               </div>
             ))}
           </div>
-        ) : reviews.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="border border-zinc-800 rounded-xl p-20 text-center">
             <p className="text-5xl mb-4">✍️</p>
             <p className="text-zinc-600 uppercase tracking-widest text-sm">
@@ -105,7 +134,7 @@ export default function ReviewsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {reviews.map(review => {
+            {filtered.map(review => {
               const band = (review.releases as any)?.bands
               const release = review.releases
               return (
@@ -137,10 +166,19 @@ export default function ReviewsPage() {
                         <p className="text-xs text-zinc-700 shrink-0">{timeAgo(review.created_at)}</p>
                       </div>
 
-                      {/* Review title */}
-                      <p className="font-black uppercase tracking-wide text-sm mt-3">
-                        {review.title}
-                      </p>
+                      {/* Review title + rating */}
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        <p className="font-black uppercase tracking-wide text-sm">{review.title}</p>
+                        {review.rating !== null && (
+                          <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${
+                            review.rating >= 15 ? 'text-green-400 bg-green-950/40 border-green-900/50'
+                            : review.rating >= 10 ? 'text-yellow-400 bg-yellow-950/40 border-yellow-900/50'
+                            : 'text-red-400 bg-red-950/40 border-red-900/50'
+                          }`}>
+                            {review.rating.toFixed(1)}/20
+                          </span>
+                        )}
+                      </div>
 
                       {/* Excerpt */}
                       <p className="text-sm text-zinc-400 mt-1 leading-relaxed line-clamp-3">

@@ -162,20 +162,36 @@ export default function AddRelease() {
         title: t.title.trim(),
         track_number: i + 1,
         embed_url: normalizeUrl(t.embed_url.trim()),
-      }))
-    )
-
-      await supabase.from('tracks').insert(
-      validTracks.map((t, i) => ({
-        release_id: release.id,
-        title: t.title.trim(),
-        track_number: i + 1,
-        embed_url: normalizeUrl(t.embed_url.trim()),
         duration: t.duration?.trim() || null,
         lyrics_by: t.lyrics_by?.trim() || null,
         music_by: t.music_by?.trim() || null,
       }))
     )
+
+    // Notify band followers
+    try {
+      const { data: followers } = await supabase
+        .from('follows')
+        .select('user_id')
+        .eq('band_id', bandId)
+
+      if (followers && followers.length > 0) {
+        const { data: bandData } = await supabase
+          .from('bands')
+          .select('name')
+          .eq('id', bandId)
+          .single()
+
+        await supabase.from('notifications').insert(
+          followers.map((f: any) => ({
+            user_id: f.user_id,
+            title: `${bandData?.name || 'A band you follow'} released "${title.trim()}"`,
+            body: `New ${releaseType} on The Metalist.`,
+            href: `/bands/${bandSlug}`,
+          }))
+        )
+      }
+    } catch (_) {}
 
     router.push(`/bands/${bandSlug}`)
   }

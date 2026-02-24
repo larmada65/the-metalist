@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
@@ -29,6 +29,16 @@ interface GlobalNavProps {
   currentUser?: string | null
 }
 
+const NAV_LINKS = [
+  { href: '/explore',  label: 'Explore' },
+  { href: '/rankings', label: 'Rankings' },
+  { href: '/find',     label: 'Musicians' },
+  { href: '/shows',    label: 'Shows' },
+  { href: '/activity', label: 'Activity' },
+  { href: '/reviews',  label: 'Reviews' },
+  { href: '/members',  label: 'Members' },
+]
+
 export default function GlobalNav({ backHref, backLabel, username, onLogout, currentUser }: GlobalNavProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<QuickResult[]>([])
@@ -39,11 +49,22 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
   const [notifCount, setNotifCount] = useState(0)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifs, setNotifs] = useState<Notif[]>([])
+  const [mobileOpen, setMobileOpen] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
+
+  // Close mobile menu on route change
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [mobileOpen])
 
   const fetchUserData = async (userId: string) => {
     const { data: profile } = await supabase
@@ -57,7 +78,6 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
     } catch (_) {}
   }
 
-  // Self-check auth + fetch username/notifs
   useEffect(() => {
     if (currentUser !== undefined) {
       if (currentUser) fetchUserData(currentUser)
@@ -74,6 +94,17 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setNotifOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Close search dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
@@ -111,84 +142,36 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
     if (opening) loadNotifs()
   }
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  // Debounced search as user types
+  // Debounced search
   useEffect(() => {
     if (!query.trim() || query.length < 2) {
       setResults([])
       setOpen(false)
       return
     }
-
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      runQuickSearch(query.trim())
-    }, 300)
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
+    debounceRef.current = setTimeout(() => runQuickSearch(query.trim()), 300)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query])
 
   const runQuickSearch = async (term: string) => {
     setLoading(true)
     const quick: QuickResult[] = []
 
-    // Bands
     const { data: bands } = await supabase
-      .from('bands')
-      .select('name, slug, country, logo_url')
-      .eq('is_published', true)
-      .ilike('name', `%${term}%`)
-      .limit(3)
+      .from('bands').select('name, slug, country, logo_url')
+      .eq('is_published', true).ilike('name', `%${term}%`).limit(3)
+    bands?.forEach(b => quick.push({ type: 'band', label: b.name, sublabel: b.country || 'Band', href: `/bands/${b.slug}`, image: b.logo_url }))
 
-    bands?.forEach(b => quick.push({
-      type: 'band',
-      label: b.name,
-      sublabel: b.country || 'Band',
-      href: `/bands/${b.slug}`,
-      image: b.logo_url,
-    }))
-
-    // Releases
     const { data: releases } = await supabase
-      .from('releases')
-      .select('title, release_type, cover_url, bands(name, slug)')
-      .ilike('title', `%${term}%`)
-      .limit(2)
+      .from('releases').select('title, release_type, cover_url, bands(name, slug)')
+      .ilike('title', `%${term}%`).limit(2)
+    releases?.forEach((r: any) => quick.push({ type: 'release', label: r.title, sublabel: `${r.release_type}${r.bands?.name ? ` · ${r.bands.name}` : ''}`, href: `/bands/${r.bands?.slug}`, image: r.cover_url }))
 
-    releases?.forEach((r: any) => quick.push({
-      type: 'release',
-      label: r.title,
-      sublabel: `${r.release_type}${r.bands?.name ? ` · ${r.bands.name}` : ''}`,
-      href: `/bands/${r.bands?.slug}`,
-      image: r.cover_url,
-    }))
-
-    // Members
     const { data: members } = await supabase
-      .from('band_members')
-      .select('name, instrument, bands(name, slug, logo_url)')
-      .ilike('name', `%${term}%`)
-      .limit(2)
-
-    members?.forEach((m: any) => quick.push({
-      type: 'member',
-      label: m.name,
-      sublabel: `${m.instrument}${m.bands?.name ? ` · ${m.bands.name}` : ''}`,
-      href: `/bands/${m.bands?.slug}`,
-      image: m.bands?.logo_url,
-    }))
+      .from('band_members').select('name, instrument, bands(name, slug, logo_url)')
+      .ilike('name', `%${term}%`).limit(2)
+    members?.forEach((m: any) => quick.push({ type: 'member', label: m.name, sublabel: `${m.instrument}${m.bands?.name ? ` · ${m.bands.name}` : ''}`, href: `/bands/${m.bands?.slug}`, image: m.bands?.logo_url }))
 
     setResults(quick)
     setOpen(quick.length > 0)
@@ -216,161 +199,248 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
   }
 
   return (
-    <nav className="border-b border-zinc-800 px-6 py-3 flex items-center gap-6">
-      {/* Logo + back */}
-      <div className="flex flex-col shrink-0">
-        <Link href="/" className="text-xl font-black tracking-widest uppercase text-red-500 leading-tight">
-          The Metalist
-        </Link>
-        {backHref && backLabel && (
-          <Link href={backHref} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors mt-0.5">
-            ← {backLabel}
+    <>
+      <nav className="border-b border-zinc-800 px-4 md:px-6 py-3 flex items-center gap-3 md:gap-6 relative z-40 bg-black">
+        {/* Logo + back */}
+        <div className="flex flex-col shrink-0">
+          <Link href="/" className="text-xl font-black tracking-widest uppercase text-red-500 leading-tight">
+            The Metalist
           </Link>
-        )}
-      </div>
+          {backHref && backLabel && (
+            <Link href={backHref} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors mt-0.5 hidden md:block">
+              ← {backLabel}
+            </Link>
+          )}
+        </div>
 
-      {/* Centre nav links */}
-      <div className="hidden md:flex items-center gap-5 shrink-0">
-        <Link href="/explore" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
-          Explore
-        </Link>
-        <Link href="/rankings" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
-          Rankings
-        </Link>
-        <Link href="/find" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
-          Musicians
-        </Link>
-        <Link href="/shows" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
-          Shows
-        </Link>
-        <Link href="/activity" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
-          Activity
-        </Link>
-        <Link href="/reviews" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
-          Reviews
-        </Link>
-      </div>
+        {/* Centre nav links — desktop only */}
+        <div className="hidden md:flex items-center gap-5 shrink-0">
+          {NAV_LINKS.map(l => (
+            <Link key={l.href} href={l.href}
+              className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
+              {l.label}
+            </Link>
+          ))}
+        </div>
 
-      {/* Search bar with dropdown */}
-      <div ref={wrapperRef} className="flex-1 max-w-md relative">
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onFocus={() => results.length > 0 && setOpen(true)}
-            placeholder="Search bands, releases, musicians..."
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition-colors placeholder-zinc-600"
-          />
-        </form>
+        {/* Search bar — desktop only */}
+        <div ref={wrapperRef} className="hidden md:block flex-1 max-w-md relative">
+          <form onSubmit={handleSubmit}>
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onFocus={() => results.length > 0 && setOpen(true)}
+              placeholder="Search bands, releases, musicians..."
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition-colors placeholder-zinc-600"
+            />
+          </form>
 
-        {/* Dropdown */}
-        {open && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl z-50">
-            {loading ? (
-              <p className="text-xs text-zinc-600 px-4 py-3 animate-pulse">Searching...</p>
-            ) : (
-              <>
-                {results.map((result, i) => (
-                  <button key={i} onClick={() => handleSelect(result.href)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors text-left border-b border-zinc-800 last:border-0">
-                    <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center text-sm">
-                      {result.image
-                        ? <img src={result.image} alt={result.label} className="w-full h-full object-cover" />
-                        : <span>{typeIcon(result.type)}</span>
-                      }
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white truncate">{result.label}</p>
-                      <p className="text-xs text-zinc-500 truncate">{result.sublabel}</p>
-                    </div>
-                    <span className="text-xs text-zinc-700 uppercase tracking-widest shrink-0">
-                      {result.type}
-                    </span>
-                  </button>
-                ))}
-                {query.length >= 2 && (
-                  <button onClick={() => { setOpen(false); router.push(`/search?q=${encodeURIComponent(query)}`) }}
-                    className="w-full px-4 py-3 text-xs text-red-400 hover:text-red-300 hover:bg-zinc-900 transition-colors text-left">
-                    See all results for "{query}" →
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
+          {open && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl z-50">
+              {loading ? (
+                <p className="text-xs text-zinc-600 px-4 py-3 animate-pulse">Searching...</p>
+              ) : (
+                <>
+                  {results.map((result, i) => (
+                    <button key={i} onClick={() => handleSelect(result.href)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors text-left border-b border-zinc-800 last:border-0">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center text-sm">
+                        {result.image
+                          ? <img src={result.image} alt={result.label} className="w-full h-full object-cover" />
+                          : <span>{typeIcon(result.type)}</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{result.label}</p>
+                        <p className="text-xs text-zinc-500 truncate">{result.sublabel}</p>
+                      </div>
+                      <span className="text-xs text-zinc-700 uppercase tracking-widest shrink-0">{result.type}</span>
+                    </button>
+                  ))}
+                  {query.length >= 2 && (
+                    <button onClick={() => { setOpen(false); router.push(`/search?q=${encodeURIComponent(query)}`) }}
+                      className="w-full px-4 py-3 text-xs text-red-400 hover:text-red-300 hover:bg-zinc-900 transition-colors text-left">
+                      See all results for "{query}" →
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
-      {/* Right side */}
-      <div className="flex items-center gap-4 ml-auto shrink-0">
-        {resolvedUser ? (
-          <>
-            {resolvedUsername && (
+        {/* Right side */}
+        <div className="flex items-center gap-3 md:gap-4 ml-auto shrink-0">
+          {resolvedUser ? (
+            <>
               <span className="text-zinc-400 text-sm hidden md:block">
                 Hey, <span className="text-white font-bold">{resolvedUsername}</span> 🤘
               </span>
-            )}
 
-            {/* Notification bell */}
-            <div ref={notifRef} className="relative">
-              <button onClick={handleBellClick}
-                className="relative text-zinc-500 hover:text-white transition-colors p-1">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {notifCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-xs font-black rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                    {notifCount > 9 ? '9+' : notifCount}
-                  </span>
-                )}
-              </button>
-
-              {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl z-50">
-                  <p className="text-xs uppercase tracking-widest text-zinc-500 px-4 pt-3 pb-2">Notifications</p>
-                  {notifs.length === 0 ? (
-                    <p className="text-xs text-zinc-600 px-4 pb-4">You're all caught up.</p>
-                  ) : (
-                    <div>
-                      {notifs.map(n => (
-                        <button key={n.id}
-                          onClick={() => { setNotifOpen(false); if (n.href) router.push(n.href) }}
-                          className="w-full text-left px-4 py-3 border-t border-zinc-800 hover:bg-zinc-900 transition-colors">
-                          <p className="text-sm text-white font-medium">{n.title}</p>
-                          {n.body && <p className="text-xs text-zinc-500 mt-0.5">{n.body}</p>}
-                          <p className="text-xs text-zinc-700 mt-0.5">
-                            {new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
+              {/* Notification bell */}
+              <div ref={notifRef} className="relative">
+                <button onClick={handleBellClick}
+                  className="relative text-zinc-500 hover:text-white transition-colors p-1">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {notifCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-xs font-black rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                      {notifCount > 9 ? '9+' : notifCount}
+                    </span>
                   )}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl z-50">
+                    <p className="text-xs uppercase tracking-widest text-zinc-500 px-4 pt-3 pb-2">Notifications</p>
+                    {notifs.length === 0 ? (
+                      <p className="text-xs text-zinc-600 px-4 pb-4">You're all caught up.</p>
+                    ) : (
+                      <div>
+                        {notifs.map(n => (
+                          <button key={n.id}
+                            onClick={() => { setNotifOpen(false); if (n.href) router.push(n.href) }}
+                            className="w-full text-left px-4 py-3 border-t border-zinc-800 hover:bg-zinc-900 transition-colors">
+                            <p className="text-sm text-white font-medium">{n.title}</p>
+                            {n.body && <p className="text-xs text-zinc-500 mt-0.5">{n.body}</p>}
+                            <p className="text-xs text-zinc-700 mt-0.5">
+                              {new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop auth links */}
+              <Link href="/dashboard" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest hidden md:block">
+                Dashboard
+              </Link>
+              {resolvedUsername && (
+                <Link href={`/members/${resolvedUsername}`} className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest hidden md:block">
+                  My Profile
+                </Link>
+              )}
+              <button onClick={resolvedLogout}
+                className="text-xs text-zinc-600 hover:text-red-400 transition-colors uppercase tracking-widest hidden md:block">
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="border border-zinc-700 text-zinc-300 px-4 py-1.5 rounded-lg hover:border-red-500 hover:text-white transition-colors text-sm hidden md:block">
+                Login
+              </Link>
+              <Link href="/register" className="border border-red-600 bg-red-600 text-white px-4 py-1.5 rounded-lg hover:bg-red-700 transition-colors text-sm hidden md:block">
+                Join
+              </Link>
+            </>
+          )}
+
+          {/* Hamburger button — mobile only */}
+          <button
+            onClick={() => setMobileOpen(v => !v)}
+            className="md:hidden p-2 text-zinc-400 hover:text-white transition-colors"
+            aria-label="Open menu">
+            {mobileOpen ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80" onClick={() => setMobileOpen(false)} />
+
+          {/* Drawer */}
+          <div className="relative ml-auto w-72 max-w-full h-full bg-zinc-950 border-l border-zinc-800 flex flex-col overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+              <span className="text-lg font-black tracking-widest uppercase text-red-500">The Metalist</span>
+              <button onClick={() => setMobileOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-1">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-5 py-4 border-b border-zinc-800">
+              <form onSubmit={(e) => { e.preventDefault(); if (query.trim()) { setMobileOpen(false); router.push(`/search?q=${encodeURIComponent(query.trim())}`) }}}>
+                <input
+                  type="text"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-red-500 transition-colors placeholder-zinc-600"
+                />
+              </form>
+            </div>
+
+            {/* Nav links */}
+            <div className="px-5 py-4 border-b border-zinc-800 flex flex-col gap-1">
+              <p className="text-xs text-zinc-700 uppercase tracking-widest mb-2">Navigate</p>
+              {NAV_LINKS.map(l => (
+                <Link key={l.href} href={l.href}
+                  className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900 last:border-0">
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+
+            {/* Account section */}
+            <div className="px-5 py-4 flex flex-col gap-1">
+              <p className="text-xs text-zinc-700 uppercase tracking-widest mb-2">Account</p>
+              {resolvedUser ? (
+                <>
+                  {resolvedUsername && (
+                    <p className="text-xs text-zinc-500 mb-3">
+                      Signed in as <span className="text-white font-bold">{resolvedUsername}</span>
+                    </p>
+                  )}
+                  <Link href="/dashboard"
+                    className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900">
+                    Dashboard
+                  </Link>
+                  {resolvedUsername && (
+                    <Link href={`/members/${resolvedUsername}`}
+                      className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900">
+                      My Profile
+                    </Link>
+                  )}
+                  <button onClick={() => { setMobileOpen(false); resolvedLogout() }}
+                    className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-600 hover:text-red-400 transition-colors text-left">
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col gap-3 mt-1">
+                  <Link href="/login"
+                    className="w-full text-center border border-zinc-700 text-zinc-300 px-4 py-2.5 rounded-lg hover:border-red-500 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest">
+                    Login
+                  </Link>
+                  <Link href="/register"
+                    className="w-full text-center border border-red-600 bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition-colors text-sm font-bold uppercase tracking-widest">
+                    Join the Underground
+                  </Link>
                 </div>
               )}
             </div>
-
-            <Link href="/dashboard" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
-              Dashboard
-            </Link>
-            <Link href="/dashboard/profile" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest hidden md:block">
-              Profile
-            </Link>
-            <button onClick={resolvedLogout}
-              className="text-xs text-zinc-600 hover:text-red-400 transition-colors uppercase tracking-widest">
-              Logout
-            </button>
-          </>
-        ) : (
-          <>
-            <Link href="/login" className="border border-zinc-700 text-zinc-300 px-4 py-1.5 rounded-lg hover:border-red-500 hover:text-white transition-colors text-sm">
-              Login
-            </Link>
-            <Link href="/register" className="border border-red-600 bg-red-600 text-white px-4 py-1.5 rounded-lg hover:bg-red-700 transition-colors text-sm">
-              Join
-            </Link>
-          </>
-        )}
-      </div>
-    </nav>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

@@ -473,6 +473,27 @@ export default function ManageBand() {
       setNewShowCountry('')
       setNewShowVenue('')
       setNewShowTicketUrl('')
+
+      // Notify band followers
+      try {
+        const { data: followers } = await supabase
+          .from('follows')
+          .select('user_id')
+          .eq('band_id', band.id)
+
+        if (followers && followers.length > 0) {
+          const [y, m, d] = newShowDate.split('-').map(Number)
+          const dateLabel = new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          await supabase.from('notifications').insert(
+            followers.map((f: any) => ({
+              user_id: f.user_id,
+              title: `${band.name} has a show on ${dateLabel}`,
+              body: `${newShowCity.trim()}${newShowCountry ? `, ${newShowCountry}` : ''}`,
+              href: `/bands/${band.slug}`,
+            }))
+          )
+        }
+      } catch (_) {}
     }
     setSavingShow(false)
   }

@@ -15,7 +15,10 @@ type FindProfile = {
   website_url: string | null
   is_producer: boolean
   is_sound_engineer: boolean
+  genre_ids: number[] | null
 }
+
+type Genre = { id: number; name: string }
 
 function avatarBg(str: string): string {
   const palette = ['#7f1d1d', '#78350f', '#14532d', '#1e3a5f', '#4c1d95', '#831843', '#134e4a', '#3b0764']
@@ -30,17 +33,22 @@ export default function FindMusicians() {
   const [profiles, setProfiles] = useState<FindProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRole, setSelectedRole] = useState<Role>('all')
+  const [selectedGenre, setSelectedGenre] = useState<number | null>(null)
   const [search, setSearch] = useState('')
+  const [allGenres, setAllGenres] = useState<Genre[]>([])
   const supabase = createClient()
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, username, first_name, last_name, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer')
-        .or('is_producer.eq.true,is_sound_engineer.eq.true')
-        .order('username')
+      const [{ data }, { data: genreData }] = await Promise.all([
+        supabase.from('profiles')
+          .select('id, username, first_name, last_name, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, genre_ids')
+          .or('is_producer.eq.true,is_sound_engineer.eq.true')
+          .order('username'),
+        supabase.from('genres_list').select('id, name').order('name'),
+      ])
       if (data) setProfiles(data as FindProfile[])
+      if (genreData) setAllGenres(genreData)
       setLoading(false)
     }
     load()
@@ -53,11 +61,22 @@ export default function FindMusicians() {
       return true
     })
     .filter(p => {
+      if (!selectedGenre) return true
+      return p.genre_ids?.includes(selectedGenre) ?? false
+    })
+    .filter(p => {
       if (!search.trim()) return true
       const q = search.toLowerCase()
       const name = [p.first_name, p.last_name].filter(Boolean).join(' ').toLowerCase()
       return name.includes(q) || p.username.toLowerCase().includes(q)
     })
+
+  // Only show genres that appear among visible profiles (after role filter)
+  const activeGenres = allGenres.filter(g =>
+    profiles
+      .filter(p => selectedRole === 'producer' ? p.is_producer : selectedRole === 'engineer' ? p.is_sound_engineer : true)
+      .some(p => p.genre_ids?.includes(g.id))
+  )
 
   const producerCount = profiles.filter(p => p.is_producer).length
   const engineerCount = profiles.filter(p => p.is_sound_engineer).length
@@ -105,23 +124,40 @@ export default function FindMusicians() {
         )}
 
         {/* Filters */}
-        <div className="flex gap-3 flex-wrap items-center mb-8">
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name..."
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition-colors placeholder-zinc-600 w-56"
-          />
-          <button onClick={() => setSelectedRole('all')} className={pillClass(selectedRole === 'all')}>
-            All
-          </button>
-          <button onClick={() => setSelectedRole('producer')} className={pillClass(selectedRole === 'producer')}>
-            🎚 Producers
-          </button>
-          <button onClick={() => setSelectedRole('engineer')} className={pillClass(selectedRole === 'engineer')}>
-            🎛 Sound Engineers
-          </button>
+        <div className="flex flex-col gap-3 mb-8">
+          <div className="flex gap-3 flex-wrap items-center">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name..."
+              className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition-colors placeholder-zinc-600 w-56"
+            />
+            <button onClick={() => setSelectedRole('all')} className={pillClass(selectedRole === 'all')}>
+              All
+            </button>
+            <button onClick={() => setSelectedRole('producer')} className={pillClass(selectedRole === 'producer')}>
+              🎚 Producers
+            </button>
+            <button onClick={() => setSelectedRole('engineer')} className={pillClass(selectedRole === 'engineer')}>
+              🎛 Sound Engineers
+            </button>
+          </div>
+          {activeGenres.length > 0 && (
+            <div className="flex gap-2 flex-wrap items-center">
+              <span className="text-xs text-zinc-600 uppercase tracking-widest shrink-0">Genre:</span>
+              <button onClick={() => setSelectedGenre(null)}
+                className={pillClass(selectedGenre === null)}>
+                All
+              </button>
+              {activeGenres.map(g => (
+                <button key={g.id} onClick={() => setSelectedGenre(prev => prev === g.id ? null : g.id)}
+                  className={pillClass(selectedGenre === g.id)}>
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Grid */}

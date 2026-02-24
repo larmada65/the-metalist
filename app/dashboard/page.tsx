@@ -37,12 +37,22 @@ type PendingRequest = {
   profiles: { username: string }
 }
 
+type FollowingEntry = {
+  following_id: string
+  profiles: {
+    username: string
+    first_name: string | null
+    last_name: string | null
+  }
+}
+
 export default function Dashboard() {
   const [username, setUsername] = useState('')
   const [currentUser, setCurrentUser] = useState<string | null>(null)
   const [memberships, setMemberships] = useState<BandMembership[]>([])
   const [releases, setReleases] = useState<Release[]>([])
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
+  const [following, setFollowing] = useState<FollowingEntry[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
   const router = useRouter()
@@ -78,6 +88,14 @@ export default function Dashboard() {
           .order('release_year', { ascending: false })
         if (releaseData) setReleases(releaseData)
       }
+
+      // Get people this user follows
+      const { data: followingData } = await supabase
+        .from('user_follows')
+        .select('following_id, profiles!user_follows_following_id_fkey(username, first_name, last_name)')
+        .eq('follower_id', user.id)
+        .order('created_at', { ascending: false })
+      if (followingData) setFollowing(followingData as any)
 
       // Get pending join requests for bands where user is leader
       const { data: leaderBands } = await supabase
@@ -328,6 +346,28 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* People you follow — always visible */}
+        {following.length > 0 && (
+          <div className="mt-10">
+            <p className="text-xs uppercase tracking-widest text-zinc-600 mb-3">
+              Following ({following.length})
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {following.map(f => {
+                const p = f.profiles as any
+                const displayName = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username
+                return (
+                  <Link key={f.following_id} href={`/members/${p.username}`}
+                    className="flex items-center gap-2 border border-zinc-800 hover:border-zinc-600 rounded-lg px-3 py-2 transition-colors group">
+                    <span className="text-sm font-bold group-hover:text-red-500 transition-colors">{displayName}</span>
+                    <span className="text-xs text-zinc-600">@{p.username}</span>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

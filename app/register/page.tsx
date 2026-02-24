@@ -67,22 +67,18 @@ export default function Register() {
     }
 
     if (data.user) {
-      // upsert handles both: fresh signup and any auto-created row from a DB trigger
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      const profilePayload = {
         id: data.user.id,
         username,
         email,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-      }, { onConflict: 'id' })
+        genre_ids: genreIds.length > 0 ? genreIds : null,
+      }
+      const { error: profileError } = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' })
 
       if (profileError) {
-        // Most likely cause: email confirmation is on and auth.uid() isn't set yet.
-        // Store the profile data in localStorage so we can save it after confirmation.
-        localStorage.setItem('pending_profile', JSON.stringify({
-          id: data.user.id, username, email,
-          first_name: firstName.trim(), last_name: lastName.trim(),
-        }))
+        localStorage.setItem('pending_profile', JSON.stringify(profilePayload))
       }
     }
 
@@ -192,6 +188,26 @@ export default function Register() {
                 </button>
               </div>
             </div>
+
+            {allGenres.length > 0 && (
+              <div>
+                <label className="text-xs uppercase tracking-widest text-zinc-500 mb-1 block">
+                  Your Taste <span className="text-zinc-700 normal-case tracking-normal">(optional — helps with filtering)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {allGenres.map(g => (
+                    <button key={g.id} type="button" onClick={() => toggleGenre(g.id)}
+                      className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                        genreIds.includes(g.id)
+                          ? 'bg-red-600 text-white'
+                          : 'bg-zinc-900 border border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                      }`}>
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <button onClick={handleRegister} disabled={loading}
               className="mt-2 bg-red-600 hover:bg-red-700 disabled:bg-zinc-700 text-white font-bold uppercase tracking-widest py-3 rounded transition-colors">

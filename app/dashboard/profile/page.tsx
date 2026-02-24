@@ -4,6 +4,8 @@ import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import GlobalNav from '../../../components/GlobalNav'
 
+type Genre = { id: number; name: string }
+
 export default function ProfileSettings() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
@@ -19,6 +21,8 @@ export default function ProfileSettings() {
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [isProducer, setIsProducer] = useState(false)
   const [isSoundEngineer, setIsSoundEngineer] = useState(false)
+  const [genreIds, setGenreIds] = useState<number[]>([])
+  const [allGenres, setAllGenres] = useState<Genre[]>([])
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSuccess, setProfileSuccess] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -40,11 +44,12 @@ export default function ProfileSettings() {
       setUserId(user.id)
       setEmail(user.email || '')
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer')
-        .eq('id', user.id)
-        .single()
+      const [{ data: profile }, { data: genreData }] = await Promise.all([
+        supabase.from('profiles')
+          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, genre_ids')
+          .eq('id', user.id).single(),
+        supabase.from('genres_list').select('id, name').order('name'),
+      ])
 
       if (profile) {
         setFirstName(profile.first_name || '')
@@ -56,7 +61,9 @@ export default function ProfileSettings() {
         setWebsiteUrl(profile.website_url || '')
         setIsProducer(profile.is_producer ?? false)
         setIsSoundEngineer(profile.is_sound_engineer ?? false)
+        setGenreIds(profile.genre_ids || [])
       }
+      if (genreData) setAllGenres(genreData)
       setLoading(false)
     }
     load()
@@ -79,6 +86,7 @@ export default function ProfileSettings() {
         website_url: websiteUrl.trim() || null,
         is_producer: isProducer,
         is_sound_engineer: isSoundEngineer,
+        genre_ids: genreIds.length > 0 ? genreIds : null,
       })
       .eq('id', userId)
 
@@ -247,6 +255,28 @@ export default function ProfileSettings() {
                   </button>
                 </div>
               </div>
+              {allGenres.length > 0 && (
+                <div>
+                  <label className={labelClass}>Genre Preferences</label>
+                  <p className="text-xs text-zinc-600 mb-3">
+                    Used to filter you in musician searches and match you with relevant content.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {allGenres.map(g => (
+                      <button key={g.id} type="button"
+                        onClick={() => setGenreIds(prev => prev.includes(g.id) ? prev.filter(x => x !== g.id) : [...prev, g.id])}
+                        className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                          genreIds.includes(g.id)
+                            ? 'bg-red-600 text-white'
+                            : 'bg-zinc-900 border border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                        }`}>
+                        {g.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className={labelClass}>Email</label>
                 <input
