@@ -23,11 +23,15 @@ type ReleaseResult = {
   bands: { name: string; slug: string }
 }
 
-type MemberResult = {
+type ProfileResult = {
   id: string
-  name: string
-  instrument: string
-  bands: { name: string; slug: string; logo_url: string | null }
+  username: string
+  first_name: string | null
+  last_name: string | null
+  avatar_url: string | null
+  is_producer: boolean
+  is_sound_engineer: boolean
+  musician_instruments: string[] | null
 }
 
 type Genre = { id: number; name: string }
@@ -39,7 +43,7 @@ function SearchContent() {
   const [input, setInput] = useState(query)
   const [bands, setBands] = useState<BandResult[]>([])
   const [releases, setReleases] = useState<ReleaseResult[]>([])
-  const [members, setMembers] = useState<MemberResult[]>([])
+  const [profiles, setProfiles] = useState<ProfileResult[]>([])
   const [allGenres, setAllGenres] = useState<Genre[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -131,13 +135,13 @@ function SearchContent() {
       .limit(10)
     setReleases((releaseData || []) as any)
 
-    // Search band members
-    const { data: memberData } = await supabase
-      .from('band_members')
-      .select('id, name, instrument, bands(name, slug, logo_url)')
-      .ilike('name', `%${term}%`)
-      .limit(10)
-    setMembers((memberData || []) as any)
+    // Search user profiles
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id, username, first_name, last_name, avatar_url, is_producer, is_sound_engineer, musician_instruments')
+      .or(`username.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%`)
+      .limit(8)
+    setProfiles((profileData || []) as any)
 
     setLoading(false)
   }
@@ -152,7 +156,7 @@ function SearchContent() {
     return allGenres.filter(g => genreIds.includes(g.id)).slice(0, 3)
   }
 
-  const totalResults = bands.length + releases.length + members.length
+  const totalResults = bands.length + releases.length + profiles.length
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -232,7 +236,7 @@ function SearchContent() {
                 </h2>
                 <div className="flex flex-col gap-3">
                   {releases.map(release => (
-                    <Link key={release.id} href={`/bands/${release.bands?.slug}`}
+                    <Link key={release.id} href={`/releases/${release.id}`}
                       className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-600 transition-colors group">
                       <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                         {release.cover_url
@@ -257,34 +261,41 @@ function SearchContent() {
               </section>
             )}
 
-            {/* Members */}
-            {members.length > 0 && (
+            {/* People */}
+            {profiles.length > 0 && (
               <section>
                 <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4">
-                  Musicians ({members.length})
+                  People ({profiles.length})
                 </h2>
                 <div className="flex flex-col gap-3">
-                  {members.map(member => (
-                    <Link key={member.id} href={`/bands/${(member.bands as any)?.slug}`}
-                      className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-600 transition-colors group">
-                      <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
-                        {(member.bands as any)?.logo_url
-                          ? <img src={(member.bands as any).logo_url} alt={(member.bands as any).name} className="w-full h-full object-cover" />
-                          : <span className="text-xl">🎸</span>
-                        }
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-black uppercase tracking-wide group-hover:text-red-500 transition-colors">
-                          {member.name}
-                        </p>
-                        <p className="text-xs text-zinc-600 mt-0.5">
-                          {member.instrument}
-                          {(member.bands as any)?.name ? ` · ${(member.bands as any).name}` : ''}
-                        </p>
-                      </div>
-                      <span className="text-zinc-700 group-hover:text-red-500 transition-colors">→</span>
-                    </Link>
-                  ))}
+                  {profiles.map(profile => {
+                    const displayName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.username
+                    const roles = [
+                      profile.musician_instruments?.length ? 'Musician' : null,
+                      profile.is_producer ? 'Producer' : null,
+                      profile.is_sound_engineer ? 'Engineer' : null,
+                    ].filter(Boolean)
+                    return (
+                      <Link key={profile.id} href={`/members/${profile.username}`}
+                        className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-600 transition-colors group">
+                        <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                          {profile.avatar_url
+                            ? <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                            : <span className="text-xl font-black text-zinc-600">{displayName[0]?.toUpperCase()}</span>
+                          }
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-black uppercase tracking-wide group-hover:text-red-500 transition-colors">
+                            {displayName}
+                          </p>
+                          <p className="text-xs text-zinc-600 mt-0.5">
+                            @{profile.username}{roles.length > 0 ? ` · ${roles.join(', ')}` : ''}
+                          </p>
+                        </div>
+                        <span className="text-zinc-700 group-hover:text-red-500 transition-colors">→</span>
+                      </Link>
+                    )
+                  })}
                 </div>
               </section>
             )}

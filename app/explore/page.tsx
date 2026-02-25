@@ -40,6 +40,8 @@ function ExploreContent() {
 
       const urlInfluence = searchParams.get('influence')
       if (urlInfluence) setSelectedInfluences([parseInt(urlInfluence)])
+      const urlGenre = searchParams.get('genre')
+      if (urlGenre) setSelectedGenres([parseInt(urlGenre)])
     }
     load()
   }, [])

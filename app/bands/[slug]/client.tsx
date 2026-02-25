@@ -77,6 +77,15 @@ type Show = {
   ticket_url: string | null
 }
 
+type SimilarBand = {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  country: string | null
+  genre_ids: number[] | null
+}
+
 function parseShowDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d)
@@ -224,6 +233,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
   const [followLoading, setFollowLoading] = useState(false)
   const supabase = createClient()
   const [shows, setShows] = useState<Show[]>([])
+  const [similarBands, setSimilarBands] = useState<SimilarBand[]>([])
   const [reviews, setReviews] = useState<Record<string, Review[]>>({})
   const [reviewTitle, setReviewTitle] = useState<Record<string, string>>({})
   const [reviewContent, setReviewContent] = useState<Record<string, string>>({})
@@ -302,6 +312,18 @@ export default function BandPageClient({ slug }: { slug: string }) {
         .order('date', { ascending: true })
         .limit(5)
       if (showData) setShows(showData)
+
+      // Similar bands (shared genres)
+      if (bandData.genre_ids && bandData.genre_ids.length > 0) {
+        const { data: simData } = await supabase
+          .from('bands')
+          .select('id, name, slug, logo_url, country, genre_ids')
+          .eq('is_published', true)
+          .neq('id', bandData.id)
+          .overlaps('genre_ids', bandData.genre_ids)
+          .limit(5)
+        if (simData) setSimilarBands(simData)
+      }
 
       // Follow count
       const { count } = await supabase
@@ -506,9 +528,10 @@ export default function BandPageClient({ slug }: { slug: string }) {
               {genres.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
                   {genres.map(g => (
-                    <span key={g.id} className="px-2 py-0.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-500 uppercase tracking-wider">
+                    <Link key={g.id} href={`/explore?genre=${g.id}`}
+                      className="px-2 py-0.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-500 uppercase tracking-wider hover:border-red-500 hover:text-white transition-colors">
                       {g.name}
-                    </span>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -1100,6 +1123,39 @@ export default function BandPageClient({ slug }: { slug: string }) {
                     {inf.name}
                   </Link>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {similarBands.length > 0 && (
+            <section>
+              <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4">Similar Bands</h2>
+              <div className="flex flex-col gap-1">
+                {similarBands.map(sim => {
+                  const simGenreNames = sim.genre_ids
+                    ? genres.filter(g => sim.genre_ids!.includes(g.id)).map(g => g.name)
+                    : []
+                  return (
+                    <Link key={sim.id} href={`/bands/${sim.slug}`}
+                      className="flex items-center gap-3 group rounded-lg -mx-2 px-2 py-2 hover:bg-zinc-900/60 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                        {sim.logo_url
+                          ? <img src={sim.logo_url} alt={sim.name} className="w-full h-full object-cover" />
+                          : <span className="text-sm">🤘</span>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold group-hover:text-red-400 transition-colors truncate">
+                          {sim.name}
+                        </p>
+                        {simGenreNames.length > 0 && (
+                          <p className="text-xs text-zinc-600 truncate">{simGenreNames.slice(0, 2).join(', ')}</p>
+                        )}
+                      </div>
+                      <span className="text-zinc-700 group-hover:text-red-500 transition-colors text-xs shrink-0">→</span>
+                    </Link>
+                  )
+                })}
               </div>
             </section>
           )}
