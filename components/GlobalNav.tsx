@@ -31,8 +31,8 @@ interface GlobalNavProps {
 
 const NAV_LINKS = [
   { href: '/explore',  label: 'Bands' },
+  { href: '/releases', label: 'Releases' },
   { href: '/rankings', label: 'Rankings' },
-  { href: '/find',     label: 'Find Talent' },
   { href: '/shows',    label: 'Shows' },
   { href: '/activity', label: 'Activity' },
   { href: '/reviews',  label: 'Reviews' },

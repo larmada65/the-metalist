@@ -742,17 +742,16 @@ export default function BandPageClient({ slug }: { slug: string }) {
                         }
                       </div>
                       <div className="flex-1">
-                        <p className="font-black uppercase tracking-wide">{release.title}</p>
+                        <Link href={`/releases/${release.id}`}
+                          onClick={e => e.stopPropagation()}
+                          className="font-black uppercase tracking-wide hover:text-red-400 transition-colors block">
+                          {release.title}
+                        </Link>
                         <p className="text-xs text-zinc-500 mt-0.5">
                           {release.release_type}
                           {release.release_year ? ` · ${release.release_year}` : ''}
                           {' · '}{release.tracks.length} track{release.tracks.length !== 1 ? 's' : ''}
                         </p>
-                        <Link href={`/releases/${release.id}`}
-                          onClick={e => e.stopPropagation()}
-                          className="text-xs text-zinc-600 hover:text-red-400 transition-colors mt-0.5 inline-block">
-                          Release page →
-                        </Link>
                         <div className="mt-1">
                           <RatingDisplay avg={release.avgRating} count={release.ratingCount} />
                         </div>

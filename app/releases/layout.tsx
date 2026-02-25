@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 export const metadata: Metadata = {
-  title: 'Members — The Metalist',
-  description: 'Browse musicians, producers, engineers, and fans on The Metalist.',
+  title: 'Releases — The Metalist',
+  description: 'All albums, EPs, and singles from metal bands on The Metalist.',
 }
 export default function Layout({ children }: { children: React.ReactNode }) {
   return children
