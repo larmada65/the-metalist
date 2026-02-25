@@ -169,9 +169,9 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
     bands?.forEach(b => quick.push({ type: 'band', label: b.name, sublabel: b.country || 'Band', href: `/bands/${b.slug}`, image: b.logo_url }))
 
     const { data: releases } = await supabase
-      .from('releases').select('title, release_type, cover_url, bands(name, slug)')
+      .from('releases').select('id, title, release_type, cover_url, bands(name, slug)')
       .ilike('title', `%${term}%`).limit(2)
-    releases?.forEach((r: any) => quick.push({ type: 'release', label: r.title, sublabel: `${r.release_type}${r.bands?.name ? ` · ${r.bands.name}` : ''}`, href: `/bands/${r.bands?.slug}`, image: r.cover_url }))
+    releases?.forEach((r: any) => quick.push({ type: 'release', label: r.title, sublabel: `${r.release_type}${r.bands?.name ? ` · ${r.bands.name}` : ''}`, href: `/releases/${r.id}`, image: r.cover_url }))
 
     const { data: members } = await supabase
       .from('band_members').select('name, instrument, bands(name, slug, logo_url)')
@@ -252,7 +252,13 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
 
                 {notifOpen && (
                   <div className="absolute right-0 top-full mt-2 w-80 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl z-50">
-                    <p className="text-xs uppercase tracking-widest text-zinc-500 px-4 pt-3 pb-2">Notifications</p>
+                    <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                      <p className="text-xs uppercase tracking-widest text-zinc-500">Notifications</p>
+                      <Link href="/notifications" onClick={() => setNotifOpen(false)}
+                        className="text-xs text-zinc-600 hover:text-red-400 transition-colors uppercase tracking-widest">
+                        See all →
+                      </Link>
+                    </div>
                     {notifs.length === 0 ? (
                       <p className="text-xs text-zinc-600 px-4 pb-4">You're all caught up.</p>
                     ) : (
@@ -261,11 +267,16 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
                           <button key={n.id}
                             onClick={() => { setNotifOpen(false); if (n.href) router.push(n.href) }}
                             className="w-full text-left px-4 py-3 border-t border-zinc-800 hover:bg-zinc-900 transition-colors">
-                            <p className="text-sm text-white font-medium">{n.title}</p>
-                            {n.body && <p className="text-xs text-zinc-500 mt-0.5">{n.body}</p>}
-                            <p className="text-xs text-zinc-700 mt-0.5">
-                              {new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </p>
+                            <div className="flex items-start gap-2">
+                              {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-white font-medium">{n.title}</p>
+                                {n.body && <p className="text-xs text-zinc-500 mt-0.5">{n.body}</p>}
+                                <p className="text-xs text-zinc-700 mt-0.5">
+                                  {new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </p>
+                              </div>
+                            </div>
                           </button>
                         ))}
                       </div>
