@@ -90,7 +90,7 @@ export default function FindMusicians() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Explore" />
+      <GlobalNav backHref="/explore" backLabel="Bands" />
 
       <div className="max-w-5xl mx-auto px-6 py-16">
 
@@ -100,7 +100,7 @@ export default function FindMusicians() {
             Find Musicians
           </h1>
           <p className="text-zinc-600 text-sm text-justify max-w-xl">
-            Producers and sound engineers from the metal underground, available for collaboration.
+            Producers and sound engineers from the metalhead community, available for collaboration.
             Click a profile to get in touch.
           </p>
         </div>

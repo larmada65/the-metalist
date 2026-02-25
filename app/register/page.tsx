@@ -126,7 +126,7 @@ export default function Register() {
         </div>
       ) : (
       <div className="w-full max-w-md border border-zinc-800 rounded p-8">
-          <h1 className="text-2xl font-black uppercase tracking-wide mb-2">Join the underground</h1>
+          <h1 className="text-2xl font-black uppercase tracking-wide mb-2">Join Metalist</h1>
           <p className="text-zinc-500 text-sm mb-8">Create your account. It's free.</p>
 
           {error && (

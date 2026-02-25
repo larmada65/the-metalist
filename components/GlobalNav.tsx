@@ -30,7 +30,7 @@ interface GlobalNavProps {
 }
 
 const NAV_LINKS = [
-  { href: '/explore',  label: 'Explore' },
+  { href: '/explore',  label: 'Bands' },
   { href: '/rankings', label: 'Rankings' },
   { href: '/find',     label: 'Musicians' },
   { href: '/shows',    label: 'Shows' },
@@ -402,7 +402,7 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
                   </Link>
                   <Link href="/register"
                     className="w-full text-center border border-red-600 bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition-colors text-sm font-bold uppercase tracking-widest">
-                    Join the Underground
+                    Join Metalist
                   </Link>
                 </div>
               )}
@@ -484,7 +484,7 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
 
               {!loading && query.length < 2 && (
                 <p className="text-zinc-700 text-sm uppercase tracking-widest">
-                  Start typing to search the underground...
+                  Start typing to search...
                 </p>
               )}
             </div>

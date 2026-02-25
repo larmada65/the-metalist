@@ -156,7 +156,7 @@ function SearchContent() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Back to explore" />
+      <GlobalNav backHref="/explore" backLabel="Back to bands" />
 
       <div className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-5xl font-black uppercase tracking-tight mb-2">
@@ -294,7 +294,7 @@ function SearchContent() {
         {!loading && !searched && (
           <div className="text-center text-zinc-700 py-16">
             <p className="text-5xl mb-4">🔍</p>
-            <p className="uppercase tracking-widest text-sm">Start typing to search the underground</p>
+            <p className="uppercase tracking-widest text-sm">Start typing to search...</p>
           </div>
         )}
       </div>

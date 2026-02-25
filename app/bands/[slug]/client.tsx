@@ -487,7 +487,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Back to explore" currentUser={currentUser} />
+      <GlobalNav backHref="/explore" backLabel="Back to bands" currentUser={currentUser} />
 
       {/* Hero */}
       <div className="border-b border-zinc-800">
@@ -572,9 +572,10 @@ export default function BandPageClient({ slug }: { slug: string }) {
                   </span>
                 )}
                 {currentUser && userMemberStatus === 'leader' && (
-                  <span className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-500">
-                    👑 Leader
-                  </span>
+                  <Link href={`/dashboard/manage/${band.id}`}
+                    className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-red-500 hover:text-white transition-colors flex items-center gap-1.5">
+                    👑 Manage Band
+                  </Link>
                 )}
                 {currentUser && userMemberStatus === 'rejected' && (
                   <span className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-800 text-zinc-600">
@@ -959,9 +960,13 @@ export default function BandPageClient({ slug }: { slug: string }) {
                                       </div>
                                     )}
                                   </div>
-                                  <p className="text-sm text-zinc-400 mt-2 leading-relaxed whitespace-pre-line">
+                                  <p className="text-sm text-zinc-400 mt-2 leading-relaxed whitespace-pre-line line-clamp-4">
                                     {review.content}
                                   </p>
+                                  <Link href={`/reviews/${review.id}`}
+                                    className="text-xs text-red-500 hover:text-red-400 transition-colors mt-2 inline-block">
+                                    Read full review →
+                                  </Link>
                                 </div>
                               ))}
                             </div>

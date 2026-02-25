@@ -96,7 +96,7 @@ export default function ShowsPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Explore" />
+      <GlobalNav backHref="/explore" backLabel="Bands" />
 
       <div className="max-w-4xl mx-auto px-6 py-16">
 

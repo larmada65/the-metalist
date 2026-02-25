@@ -307,7 +307,7 @@ export default function Dashboard() {
                   className="border border-zinc-800 hover:border-zinc-600 rounded-xl p-5 transition-all hover:bg-zinc-950 group">
                   <p className="text-2xl mb-3">🔍</p>
                   <p className="font-bold uppercase tracking-wide text-sm group-hover:text-white transition-colors">Explore Bands</p>
-                  <p className="text-xs text-zinc-600 mt-1">Discover the underground</p>
+                  <p className="text-xs text-zinc-600 mt-1">Discover metal bands</p>
                 </Link>
                 <Link href="/dashboard/profile"
                   className="border border-zinc-800 hover:border-zinc-600 rounded-xl p-5 transition-all hover:bg-zinc-950 group">

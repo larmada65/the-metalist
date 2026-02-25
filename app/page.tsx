@@ -552,7 +552,7 @@ export default function Home() {
       )}
 
       <footer className="border-t border-zinc-800 px-6 py-8 text-center text-zinc-700 text-xs">
-        © {new Date().getFullYear()} The Metalist — Built for the underground
+        © {new Date().getFullYear()} The Metalist — Built for metalheads
       </footer>
     </main>
   )

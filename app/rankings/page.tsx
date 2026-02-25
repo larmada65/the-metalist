@@ -193,7 +193,7 @@ export default function Rankings() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Explore" />
+      <GlobalNav backHref="/explore" backLabel="Bands" />
 
       <div className="max-w-3xl mx-auto px-6 py-16">
 

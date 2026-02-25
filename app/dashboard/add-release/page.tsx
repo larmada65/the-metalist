@@ -205,7 +205,7 @@ export default function AddRelease() {
 
       <div className="max-w-2xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-black uppercase tracking-tight mb-2">Add Release</h1>
-        <p className="text-zinc-500 mb-10">Drop your music on the underground.</p>
+        <p className="text-zinc-500 mb-10">Share your music with metalheads.</p>
 
         {error && (
           <div className="bg-red-900/30 border border-red-700 text-red-400 text-sm px-4 py-3 rounded mb-6">

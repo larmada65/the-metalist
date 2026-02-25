@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "The Metalist — Metal Music Discovery",
-  description: "Discover metal bands, releases, shows, and musicians from the underground.",
+  description: "Discover metal bands, releases, shows, and musicians. The home for metalheads.",
 };
 
 export default function RootLayout({

@@ -17,6 +17,11 @@ type Profile = {
   is_producer: boolean
   is_sound_engineer: boolean
   avatar_url: string | null
+  musician_instruments: string[] | null
+  musician_level: string | null
+  musician_link: string | null
+  production_level: string | null
+  studio_gear: string | null
 }
 
 type Membership = {
@@ -69,7 +74,7 @@ export default function MemberProfileClient({ username }: { username: string }) 
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, avatar_url')
+        .select('id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear')
         .eq('username', username)
         .single()
 
@@ -183,7 +188,7 @@ export default function MemberProfileClient({ username }: { username: string }) 
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Explore" />
+      <GlobalNav backHref="/explore" backLabel="Bands" />
 
       <div className="max-w-2xl mx-auto px-6 py-16">
 
@@ -276,6 +281,58 @@ export default function MemberProfileClient({ username }: { username: string }) 
           <p className="text-zinc-400 text-sm leading-relaxed mb-8 text-justify border-l-2 border-zinc-800 pl-4">
             {p.bio}
           </p>
+        )}
+
+        {/* ── Musician section ───────────────────────────────────── */}
+        {(p.musician_instruments?.length || p.musician_level || p.musician_link) && (
+          <div className="border border-zinc-800 rounded-xl p-5 mb-6">
+            <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4">As a Musician</h2>
+            {p.musician_instruments && p.musician_instruments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {p.musician_instruments.map(inst => (
+                  <span key={inst} className="px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded text-xs text-zinc-400">
+                    {inst}
+                  </span>
+                ))}
+              </div>
+            )}
+            {p.musician_level && (
+              <p className="text-xs text-zinc-500 mb-2">
+                <span className="text-zinc-700 uppercase tracking-widest mr-2">Level</span>
+                {p.musician_level}
+              </p>
+            )}
+            {p.musician_link && (
+              <a href={p.musician_link} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-red-500 hover:text-red-400 transition-colors">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Watch / Listen
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* ── Producer / Engineer section ────────────────────────── */}
+        {(p.is_producer || p.is_sound_engineer) && (p.production_level || p.studio_gear) && (
+          <div className="border border-zinc-800 rounded-xl p-5 mb-6">
+            <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4">
+              {p.is_producer && p.is_sound_engineer ? 'Production & Engineering' : p.is_producer ? 'As a Producer' : 'As a Sound Engineer'}
+            </h2>
+            {p.production_level && (
+              <p className="text-xs text-zinc-500 mb-3">
+                <span className="text-zinc-700 uppercase tracking-widest mr-2">Level</span>
+                {p.production_level}
+              </p>
+            )}
+            {p.studio_gear && (
+              <div>
+                <p className="text-xs text-zinc-700 uppercase tracking-widest mb-1">Equipment & Software</p>
+                <p className="text-sm text-zinc-400 leading-relaxed">{p.studio_gear}</p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* ── Social links ───────────────────────────────────────── */}

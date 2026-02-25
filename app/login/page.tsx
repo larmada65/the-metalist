@@ -76,7 +76,7 @@ export default function Login() {
 
       <div className="w-full max-w-md border border-zinc-800 rounded p-8">
         <h1 className="text-2xl font-black uppercase tracking-wide mb-2">Welcome back</h1>
-        <p className="text-zinc-500 text-sm mb-8">The underground missed you.</p>
+        <p className="text-zinc-500 text-sm mb-8">Welcome back, metalhead.</p>
 
         {error && (
           <div className="bg-red-900/30 border border-red-700 text-red-400 text-sm px-4 py-3 rounded mb-6">
@@ -132,7 +132,7 @@ export default function Login() {
 
         <p className="text-zinc-600 text-sm text-center mt-6">
           No account yet?{' '}
-          <Link href="/register" className="text-red-500 hover:text-red-400">Join the underground</Link>
+          <Link href="/register" className="text-red-500 hover:text-red-400">Join Metalist</Link>
         </p>
       </div>
       </div>

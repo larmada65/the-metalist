@@ -88,7 +88,7 @@ export default function MembersPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Explore" />
+      <GlobalNav backHref="/explore" backLabel="Bands" />
 
       <div className="max-w-5xl mx-auto px-6 py-16">
 
@@ -96,7 +96,7 @@ export default function MembersPage() {
         <div className="mb-10">
           <h1 className="text-5xl font-black uppercase tracking-tight mb-2">Members</h1>
           <p className="text-zinc-600 text-sm">
-            Everyone in the metal underground community.
+            Every metalhead on The Metalist.
           </p>
         </div>
 

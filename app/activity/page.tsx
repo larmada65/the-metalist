@@ -160,7 +160,7 @@ export default function ActivityPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Explore" />
+      <GlobalNav backHref="/explore" backLabel="Bands" />
 
       <div className="max-w-3xl mx-auto px-6 py-16">
 
@@ -231,7 +231,7 @@ export default function ActivityPage() {
         ) : filtered.length === 0 ? (
           <div className="border border-zinc-800 rounded-xl p-20 text-center">
             <p className="text-5xl mb-4">🌑</p>
-            <p className="text-zinc-600 uppercase tracking-widest text-sm">Nothing yet. The underground is quiet.</p>
+            <p className="text-zinc-600 uppercase tracking-widest text-sm">Nothing yet. Check back soon.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
