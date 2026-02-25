@@ -20,6 +20,7 @@ type Band = {
   youtube_url: string | null
   bandcamp_url: string | null
   soundcloud_url: string | null
+  is_published: boolean
 }
 
 type Release = {
@@ -133,6 +134,7 @@ export default function ManageBand() {
   const [influenceSearch, setInfluenceSearch] = useState('')
   const [savingInfo, setSavingInfo] = useState(false)
   const [infoSuccess, setInfoSuccess] = useState(false)
+  const [togglingPublish, setTogglingPublish] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const router = useRouter()
@@ -280,6 +282,14 @@ export default function ManageBand() {
     setInfoSuccess(true)
     setEditingInfo(false)
     setTimeout(() => setInfoSuccess(false), 3000)
+  }
+
+  const handleTogglePublish = async () => {
+    if (!band) return
+    setTogglingPublish(true)
+    await supabase.from('bands').update({ is_published: !band.is_published }).eq('id', band.id)
+    setBand(prev => prev ? { ...prev, is_published: !prev.is_published } : null)
+    setTogglingPublish(false)
   }
 
   const toggleGenre = (id: number) => setEditGenreIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -536,10 +546,22 @@ export default function ManageBand() {
           </div>
           <div className="flex-1">
             <h1 className="text-4xl font-black uppercase tracking-tight">{band.name}</h1>
-            <Link href={`/bands/${band.slug}`}
-              className="text-xs text-zinc-500 hover:text-red-400 transition-colors uppercase tracking-widest mt-1 inline-block">
-              View public page →
-            </Link>
+            <div className="flex items-center gap-3 mt-1.5">
+              <Link href={`/bands/${band.slug}`}
+                className="text-xs text-zinc-500 hover:text-red-400 transition-colors uppercase tracking-widest">
+                View public page →
+              </Link>
+              <button
+                onClick={handleTogglePublish}
+                disabled={togglingPublish}
+                className={`text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border transition-colors disabled:opacity-50 ${
+                  band.is_published
+                    ? 'border-green-800 text-green-500 hover:border-red-800 hover:text-red-400'
+                    : 'border-zinc-700 text-zinc-500 hover:border-green-700 hover:text-green-400'
+                }`}>
+                {band.is_published ? '● Published' : '○ Draft'}
+              </button>
+            </div>
           </div>
         </div>
 

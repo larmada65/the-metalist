@@ -16,6 +16,7 @@ type BandMembership = {
     logo_url: string | null
     country: string | null
     year_formed: number | null
+    is_published: boolean
   }
 }
 
@@ -73,7 +74,7 @@ export default function Dashboard() {
       // Get all bands this user is part of
       const { data: membershipData } = await supabase
         .from('band_members')
-        .select('band_id, role, status, bands(id, name, slug, logo_url, country, year_formed)')
+        .select('band_id, role, status, bands(id, name, slug, logo_url, country, year_formed, is_published)')
         .eq('profile_id', user.id)
         .eq('status', 'approved')
       if (membershipData) setMemberships(membershipData as any)
@@ -223,12 +224,19 @@ export default function Dashboard() {
                           }
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-xl font-black uppercase tracking-wide group-hover:text-red-500 transition-colors">
                               {band.name}
                             </h2>
                             <span className="text-xs bg-red-900/30 text-red-400 border border-red-900/40 px-2 py-0.5 rounded-full uppercase tracking-widest">
                               Leader
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full uppercase tracking-widest border ${
+                              band.is_published
+                                ? 'text-green-500 border-green-800 bg-green-950/30'
+                                : 'text-zinc-500 border-zinc-700 bg-zinc-900'
+                            }`}>
+                              {band.is_published ? '● Published' : '○ Draft'}
                             </span>
                           </div>
                           <div className="flex gap-3 text-xs text-zinc-600 mt-1">
@@ -306,7 +314,7 @@ export default function Dashboard() {
                 <Link href="/explore"
                   className="border border-zinc-800 hover:border-zinc-600 rounded-xl p-5 transition-all hover:bg-zinc-950 group">
                   <p className="text-2xl mb-3">🔍</p>
-                  <p className="font-bold uppercase tracking-wide text-sm group-hover:text-white transition-colors">Explore Bands</p>
+                  <p className="font-bold uppercase tracking-wide text-sm group-hover:text-white transition-colors">Browse Bands</p>
                   <p className="text-xs text-zinc-600 mt-1">Discover metal bands</p>
                 </Link>
                 <Link href="/dashboard/profile"
