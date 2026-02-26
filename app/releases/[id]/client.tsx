@@ -21,6 +21,7 @@ type Track = {
   duration: string | null
   lyrics_by: string | null
   music_by: string | null
+  lyrics: string | null
 }
 
 type Release = {
@@ -110,6 +111,7 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
   const [notFound, setNotFound] = useState(false)
   const [activeTrack, setActiveTrack] = useState<string | null>(null)
   const [relatedReleases, setRelatedReleases] = useState<RelatedRelease[]>([])
+  const [lyricsTrack, setLyricsTrack] = useState<Track | null>(null)
   const { setTrackAndPlay, currentTrack } = useAudioPlayer()
 
   // Rating input
@@ -265,7 +267,7 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
 
   if (loading) return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Back" currentUser={null} />
+      <GlobalNav backHref="/explore" backLabel="Back" />
       <div className="max-w-4xl mx-auto px-6 py-10 animate-pulse">
         <div className="flex flex-col md:flex-row gap-8 mb-12">
           <div className="md:w-52 md:shrink-0">
@@ -310,7 +312,7 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref={`/bands/${band.slug}`} backLabel={band.name} currentUser={currentUser} />
+      <GlobalNav backHref={`/bands/${band.slug}`} backLabel={band.name} />
 
       <div className="max-w-4xl mx-auto px-6 py-10">
 
@@ -479,14 +481,37 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
                             </span>
                           </span>
                           <div className="flex-1 min-w-0">
-                            <span className={`text-sm font-medium ${isActive ? 'text-red-400' : 'text-zinc-200'}`}>
-                              {track.title}
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-sm font-medium ${isActive ? 'text-red-400' : 'text-zinc-200'}`}>
+                                {track.title}
+                              </span>
+                              {track.lyrics && (
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); setLyricsTrack(track) }}
+                                  className="text-[11px] text-zinc-500 hover:text-red-400 border border-zinc-700 hover:border-red-500 px-2 py-0.5 rounded transition-colors"
+                                >
+                                  Lyrics
+                                </button>
+                              )}
+                            </div>
                             {(track.duration || track.lyrics_by || track.music_by) && (
-                              <div className="flex flex-wrap gap-3 text-xs text-zinc-600 mt-0.5">
-                                {track.duration && <span>⏱ {track.duration}</span>}
-                                {track.lyrics_by && <span>✍️ <span className="text-zinc-500">Lyrics:</span> {track.lyrics_by}</span>}
-                                {track.music_by && <span>🎸 <span className="text-zinc-500">Music:</span> {track.music_by}</span>}
+                              <div className="flex flex-wrap gap-x-4 gap-y-0 text-xs text-zinc-600 mt-0.5 items-baseline">
+                                {track.duration && <span className="shrink-0">⏱ {track.duration}</span>}
+                                <span className="min-w-[11rem] shrink-0 inline-flex items-baseline gap-1.5">
+                                  {track.lyrics_by ? (
+                                    <>
+                                      <span className="text-zinc-500 shrink-0">✍️ Lyrics:</span>
+                                      <span>{track.lyrics_by}</span>
+                                    </>
+                                  ) : null}
+                                </span>
+                                {track.music_by && (
+                                  <span className="flex items-baseline gap-1.5 shrink-0">
+                                    <span className="text-zinc-500 shrink-0">🎸 Music:</span>
+                                    <span>{track.music_by}</span>
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
@@ -669,6 +694,22 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
 
         </div>
       </div>
+
+      {lyricsTrack && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setLyricsTrack(null)}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl max-w-lg w-full max-h-[80vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+              <h3 className="text-sm font-bold text-white">Lyrics — {lyricsTrack.title}</h3>
+              <button onClick={() => setLyricsTrack(null)} className="text-zinc-500 hover:text-white p-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(80vh-52px)] p-4">
+              <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed">{lyricsTrack.lyrics}</pre>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

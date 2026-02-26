@@ -1,21 +1,46 @@
 import Link from "next/link";
 import GlobalNav from "../../components/GlobalNav";
-import { UpgradeProButton } from "../../components/UpgradeProButton";
 import {
+  BEDROOM_MONTHLY_PRICE_DOLLARS,
   PRO_MONTHLY_PRICE_DOLLARS,
+  PRO_PLUS_MONTHLY_PRICE_DOLLARS,
   PRICE_PER_TRACK_DOLLARS,
+  normalizeTier,
 } from "../../lib/subscriptions";
 import type { SubscriptionTier } from "../../lib/subscriptions";
 import { createClient } from "../../lib/supabase-server";
 import PlansReturnBanner from "./PlansReturnBanner";
+import { UpgradeButton } from "./UpgradeButton";
 
 const FREE_TIER = {
   id: "free",
   name: "Free",
   price: "$0",
+  priceSuffix: null,
   tagline: "Discover and be discovered.",
-  highlight:
-    "Create your band, add releases with YouTube or SoundCloud embeds. Rate, review, follow — no paywall.",
+  highlight: "Band profile, releases with embeds, 1 demo per month.",
+  features: [
+    "Band profile & releases (YouTube / SoundCloud embeds)",
+    "1 demo per month",
+    "Full discovery, ratings, reviews",
+    "Join bands, follow artists",
+  ],
+  emoji: "🎸",
+} as const;
+
+const BEDROOM_TIER = {
+  id: "bedroom",
+  name: "Bedroom Musician",
+  price: `$${BEDROOM_MONTHLY_PRICE_DOLLARS}`,
+  priceSuffix: "/month",
+  tagline: "For bedroom musicians and solo artists.",
+  highlight: "1 demo per week. Share rough recordings with producers.",
+  features: [
+    "1 demo per week",
+    "Share with producers & collaborators",
+    "Everything in Free",
+  ],
+  emoji: "🎤",
 } as const;
 
 const PRO_TIER = {
@@ -23,10 +48,35 @@ const PRO_TIER = {
   name: "Pro",
   price: `$${PRO_MONTHLY_PRICE_DOLLARS}`,
   priceSuffix: "/month",
-  tagline: "Release albums and songs on Metalist.",
-  highlight: "Unlocks the ability to host your music directly. Then pay per release when you publish.",
+  tagline: "For bands who release music.",
+  highlight: "Hosted MP3s. Unlimited demos. Pay $2/track when you publish.",
+  features: [
+    "Hosted MP3s (albums, EPs, singles)",
+    `$${PRICE_PER_TRACK_DOLLARS}/track when publishing`,
+    "Unlimited demos",
+    "Everything in Bedroom",
+  ],
+  emoji: "🤘",
   popular: true,
 } as const;
+
+const PRO_PLUS_TIER = {
+  id: "pro_plus",
+  name: "Pro+",
+  price: `$${PRO_PLUS_MONTHLY_PRICE_DOLLARS}`,
+  priceSuffix: "/month",
+  tagline: "The full package.",
+  highlight: "Pro + lyrics on tracks, merchandise link, more coming.",
+  features: [
+    "Everything in Pro",
+    "Lyrics on tracks",
+    "Merchandise link on band page",
+    "Priority support (coming soon)",
+  ],
+  emoji: "🔥",
+} as const;
+
+const TIERS = [FREE_TIER, BEDROOM_TIER, PRO_TIER, PRO_PLUS_TIER] as const;
 
 export default async function PlansPage() {
   const supabase = await createClient();
@@ -43,138 +93,172 @@ export default async function PlansPage() {
       .eq("user_id", user.id)
       .in("status", ["trialing", "active"])
       .maybeSingle();
-    const tier = sub?.tier as string | undefined;
-    if (tier && tier !== "free") subscriptionTier = "pro";
+    subscriptionTier = normalizeTier(sub?.tier as string | undefined);
   }
+
+  const canManageSubscription =
+    subscriptionTier === "bedroom" ||
+    subscriptionTier === "pro" ||
+    subscriptionTier === "pro_plus";
 
   return (
     <main className="min-h-screen bg-black text-white">
       <GlobalNav backHref="/dashboard" backLabel="Back to dashboard" />
 
-      <div className="max-w-4xl mx-auto px-6 py-16">
+      <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
         <PlansReturnBanner />
-        <header className="mb-12 text-center md:text-left">
-          <p className="text-xs uppercase tracking-widest text-zinc-500 mb-2">
+        <header className="mb-12 md:mb-16 text-center">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-red-500/80 mb-3">
             Plans
           </p>
-          <h1 className="text-4xl md:text-5xl font-display uppercase tracking-tight mb-4">
-            Membership <span className="text-red-500">for bands</span>
+          <h1 className="text-4xl md:text-6xl font-display uppercase tracking-tight mb-4">
+            Membership <span className="text-red-500">for metal</span>
           </h1>
-          <p className="text-zinc-400 text-sm md:text-base max-w-2xl mx-auto md:mx-0 leading-relaxed">
-            You have to be a Pro member to release albums and songs with hosted
-            audio on Metalist. Pro membership costs ${PRO_MONTHLY_PRICE_DOLLARS}{" "}
-            per month. Within that, releasing e.g. a 5-track EP costs{" "}
-            {5 * PRICE_PER_TRACK_DOLLARS} dollars (${PRICE_PER_TRACK_DOLLARS} per
-            track). Discovery, ratings, and reviews stay free for everyone.
+          <p className="text-zinc-400 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+            Start free. Upgrade when you're ready. Cancel anytime.
           </p>
+          {isLoggedIn && subscriptionTier !== "free" && (
+            <p className="mt-3 text-sm text-zinc-600">
+              Your plan: <span className="font-semibold text-zinc-400 capitalize">{subscriptionTier.replace("_", "+")}</span>
+            </p>
+          )}
         </header>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-12">
-          {/* Free */}
-          <div className="border border-zinc-800 rounded-2xl p-6 flex flex-col gap-3 bg-zinc-950/60">
-            <h2 className="text-lg font-display uppercase tracking-wide">
-              {FREE_TIER.name}
-            </h2>
-            <p className="text-xs text-zinc-500">{FREE_TIER.tagline}</p>
-            <div className="mt-1 mb-2">
-              <span className="text-2xl font-black">{FREE_TIER.price}</span>
-            </div>
-            <p className="text-xs text-zinc-400 mb-3">{FREE_TIER.highlight}</p>
-            <ul className="text-xs text-zinc-400 flex-1 space-y-1.5">
-              <li>Band profile, releases with YouTube / SoundCloud embeds</li>
-              <li>No direct MP3 hosting</li>
-              <li>Full discovery, ratings, reviews, feed</li>
-            </ul>
-            {isLoggedIn ? (
-              <button
-                type="button"
-                disabled
-                className="mt-4 inline-flex items-center justify-center rounded-lg text-xs font-bold uppercase tracking-widest px-4 py-2 border border-zinc-800 text-zinc-600 cursor-default"
-              >
-                Current plan
-              </button>
-            ) : (
-              <Link
-                href="/register"
-                className="mt-4 inline-flex items-center justify-center rounded-lg text-xs font-bold uppercase tracking-widest px-4 py-2 border border-zinc-700 text-zinc-200 hover:border-red-500 hover:text-white transition-colors"
-              >
-                Start Free
-              </Link>
-            )}
-          </div>
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 mb-16">
+          {TIERS.map((tier) => {
+            const targetId = tier.id === "free" ? null : tier.id;
+            const isPro = tier.id === "pro";
+            const isFree = tier.id === "free";
 
-          {/* Pro */}
-          <div className="border rounded-2xl p-6 flex flex-col gap-3 bg-zinc-950/60 ring-1 ring-red-600/60 border-red-600/70">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-red-400 mb-1">
-              For bands who release music
-            </p>
-            <h2 className="text-lg font-display uppercase tracking-wide">
-              {PRO_TIER.name}
-            </h2>
-            <p className="text-xs text-zinc-500">{PRO_TIER.tagline}</p>
-            <div className="mt-1 mb-2">
-              <span className="text-2xl font-black">{PRO_TIER.price}</span>
-              {PRO_TIER.priceSuffix && (
-                <span className="text-xs text-zinc-500 ml-1">
-                  {PRO_TIER.priceSuffix}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-zinc-400 mb-3">{PRO_TIER.highlight}</p>
-            <ul className="text-xs text-zinc-400 flex-1 space-y-1.5">
-              <li>Unlocks hosted MP3s (albums, EPs, singles)</li>
-              <li>
-                Pay per release when you publish — ${PRICE_PER_TRACK_DOLLARS} per
-                track (e.g. 5-track EP = ${5 * PRICE_PER_TRACK_DOLLARS})
-              </li>
-              <li>Everything in Free included</li>
-            </ul>
-            <UpgradeProButton tier={subscriptionTier} isLoggedIn={isLoggedIn} />
-          </div>
+            return (
+              <div
+                key={tier.id}
+                className={`
+                  relative rounded-2xl p-6 md:p-5 flex flex-col
+                  border-2 transition-all
+                  ${
+                    isPro
+                      ? "border-red-500/80 bg-red-950/30 ring-2 ring-red-500/30 shadow-lg shadow-red-950/30 scale-[1.02] md:scale-105 z-10"
+                      : "border-zinc-800 bg-zinc-950/80 hover:border-zinc-700"
+                  }
+                `}
+              >
+                {tier.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest bg-red-600 text-white rounded-full">
+                      Most popular
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-3xl">{tier.emoji}</span>
+                  <div>
+                    <h2 className="text-lg font-display uppercase tracking-wide font-bold">
+                      {tier.name}
+                    </h2>
+                    <p className="text-[11px] text-zinc-500">{tier.tagline}</p>
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <span className="text-3xl md:text-2xl font-black tabular-nums">
+                    {tier.price}
+                  </span>
+                  {tier.priceSuffix && (
+                    <span className="text-sm text-zinc-500 ml-1">
+                      {tier.priceSuffix}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-zinc-400 mb-4">{tier.highlight}</p>
+                <ul className="text-xs text-zinc-400 flex-1 space-y-2 mb-6">
+                  {tier.features.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-green-500/80 shrink-0 mt-0.5">✓</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {isFree ? (
+                  isLoggedIn && subscriptionTier === "free" ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full rounded-xl text-xs font-bold uppercase tracking-widest px-4 py-3 border-2 border-zinc-700 bg-zinc-800/50 text-zinc-500 cursor-default"
+                    >
+                      Current plan
+                    </button>
+                  ) : !isLoggedIn ? (
+                    <Link
+                      href="/register"
+                      className="w-full inline-flex justify-center rounded-xl text-xs font-bold uppercase tracking-widest px-4 py-3 border-2 border-zinc-600 text-zinc-300 hover:border-zinc-500 hover:text-white transition-colors"
+                    >
+                      Start Free
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-zinc-600 py-2">
+                      You have {subscriptionTier.replace("_", "+")}
+                    </span>
+                  )
+                ) : (
+                  <UpgradeButton
+                    tier={subscriptionTier}
+                    targetTier={targetId as "bedroom" | "pro" | "pro_plus"}
+                    isLoggedIn={isLoggedIn}
+                    label={`Upgrade to ${tier.name}`}
+                    canManageSubscription={canManageSubscription}
+                  />
+                )}
+              </div>
+            );
+          })}
         </section>
 
-        <section className="border border-zinc-800 rounded-2xl p-6 bg-zinc-950/50">
-          <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-3">
+        <section className="border border-zinc-800 rounded-2xl p-8 md:p-10 bg-zinc-950/50">
+          <h2 className="text-sm font-display uppercase tracking-wide mb-6 text-zinc-300">
             How it works
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-zinc-400">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
             <div>
-              <p className="font-bold uppercase tracking-wide text-xs mb-1">
-                1. Start free
+              <span className="inline-flex w-10 h-10 items-center justify-center rounded-full bg-red-600/20 text-red-400 font-black text-lg mb-3">
+                1
+              </span>
+              <p className="font-bold uppercase tracking-wide text-xs mb-2 text-zinc-300">
+                Start free
               </p>
-              <p>
-                Create your band and add releases using YouTube or SoundCloud
-                links. Discover, rate, and review — no payment required.
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Create your band, add releases with YouTube or SoundCloud. Upload 1 demo per month.
               </p>
             </div>
             <div>
-              <p className="font-bold uppercase tracking-wide text-xs mb-1">
-                2. Go Pro to release music
+              <span className="inline-flex w-10 h-10 items-center justify-center rounded-full bg-red-600/20 text-red-400 font-black text-lg mb-3">
+                2
+              </span>
+              <p className="font-bold uppercase tracking-wide text-xs mb-2 text-zinc-300">
+                Upgrade when ready
               </p>
-              <p>
-                Subscribe to Pro ({PRO_MONTHLY_PRICE_DOLLARS}/month) to unlock
-                the ability to release albums and songs with MP3s hosted on
-                Metalist. When you publish a release, you pay per track (e.g.{" "}
-                {PRICE_PER_TRACK_DOLLARS}/track, so a 5-track EP = $
-                {5 * PRICE_PER_TRACK_DOLLARS}).
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Bedroom ($3/mo) for more demos. Pro ($5/mo) for hosted releases. Pro+ ($10/mo) for lyrics and merch.
               </p>
             </div>
             <div>
-              <p className="font-bold uppercase tracking-wide text-xs mb-1">
-                3. No algorithm games
+              <span className="inline-flex w-10 h-10 items-center justify-center rounded-full bg-red-600/20 text-red-400 font-black text-lg mb-3">
+                3
+              </span>
+              <p className="font-bold uppercase tracking-wide text-xs mb-2 text-zinc-300">
+                No algorithm games
               </p>
-              <p>
-                Rankings are driven by ratings and reviews, not by who pays.
-                You can cancel Pro anytime; your hosted releases stay up.
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Rankings are driven by ratings. Cancel or downgrade anytime via your billing portal.
               </p>
             </div>
           </div>
-          <p className="text-[11px] text-zinc-600 mt-4">
-            Pro subscription requires STRIPE_PRO_MONTHLY_PRICE_ID in .env.local
-            (create a $3/month recurring price in Stripe Dashboard). Pay-per-release
-            for hosted tracks is live when you add or edit a release.
-          </p>
         </section>
+
+        <p className="text-[11px] text-zinc-600 mt-6 text-center">
+          Stripe: STRIPE_BEDROOM_MONTHLY_PRICE_ID ($3), STRIPE_PRO_MONTHLY_PRICE_ID ($5),
+          STRIPE_PRO_PLUS_MONTHLY_PRICE_ID ($10). See SUBSCRIPTIONS.md for setup.
+        </p>
       </div>
     </main>
   );

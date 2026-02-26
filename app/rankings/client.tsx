@@ -149,7 +149,7 @@ export default function RankingsClient({ genres, allRated, allFollowed, allActiv
             ) : (
               <div>
                 {topRated.map((rel, i) => (
-                  <Link key={rel.id} href={`/bands/${rel.band_slug}`}
+                  <Link key={rel.id} href={`/releases/${rel.id}`}
                     className={`${rowBase} hover:bg-zinc-950 transition-colors rounded-lg px-2 -mx-2 group`}>
                     <RankBadge rank={i + 1} />
                     <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">

@@ -78,7 +78,7 @@ export default function NotificationsPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav currentUser={userId} backHref="/dashboard" backLabel="Dashboard" />
+      <GlobalNav backHref="/dashboard" backLabel="Dashboard" />
 
       <div className="max-w-2xl mx-auto px-6 py-16">
 

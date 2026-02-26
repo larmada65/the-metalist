@@ -26,6 +26,8 @@ export type PlayerTrack = {
 type AudioPlayerContextValue = {
   currentTrack: PlayerTrack | null
   isPlaying: boolean
+  currentTime: number
+  duration: number
   setTrackAndPlay: (track: PlayerTrack) => void
   togglePlay: () => void
   stop: () => void
@@ -46,6 +48,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [currentTrack, setCurrentTrack] = useState<PlayerTrack | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
 
   // Lazily create the audio element on first use to avoid SSR surprises
   useEffect(() => {
@@ -59,23 +63,32 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!audio) return
 
     const handleTimeUpdate = () => {
-      if (!audio.duration || Number.isNaN(audio.duration)) {
-        setProgress(0)
-      } else {
+      setCurrentTime(audio.currentTime)
+      if (!Number.isNaN(audio.duration) && isFinite(audio.duration)) {
+        setDuration(audio.duration)
         setProgress(audio.currentTime / audio.duration)
+      }
+    }
+
+    const handleDurationChange = () => {
+      if (!Number.isNaN(audio.duration) && isFinite(audio.duration)) {
+        setDuration(audio.duration)
       }
     }
 
     const handleEnded = () => {
       setIsPlaying(false)
       setProgress(0)
+      setCurrentTime(0)
     }
 
     audio.addEventListener('timeupdate', handleTimeUpdate)
+    audio.addEventListener('durationchange', handleDurationChange)
     audio.addEventListener('ended', handleEnded)
 
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate)
+      audio.removeEventListener('durationchange', handleDurationChange)
       audio.removeEventListener('ended', handleEnded)
     }
   }, [])
@@ -88,6 +101,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!isSameTrack) {
       setCurrentTrack(track)
       setProgress(0)
+      setCurrentTime(0)
+      setDuration(0)
       audio.src = track.src
     }
 
@@ -121,6 +136,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     audio.currentTime = 0
     setIsPlaying(false)
     setProgress(0)
+    setCurrentTime(0)
+    setDuration(0)
     setCurrentTrack(null)
   }, [])
 
@@ -132,13 +149,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setProgress(next)
   }, [])
 
+  const formatTime = (seconds: number) => {
+    if (!isFinite(seconds) || Number.isNaN(seconds) || seconds < 0) return '0:00'
+    const m = Math.floor(seconds / 60)
+    const s = Math.floor(seconds % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
   const value = useMemo<AudioPlayerContextValue>(() => ({
     currentTrack,
     isPlaying,
+    currentTime,
+    duration,
     setTrackAndPlay,
     togglePlay,
     stop,
-  }), [currentTrack, isPlaying, setTrackAndPlay, togglePlay, stop])
+  }), [currentTrack, isPlaying, currentTime, duration, setTrackAndPlay, togglePlay, stop])
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -235,17 +261,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
                 </button>
               </div>
 
-              {/* Progress bar */}
-              <div
-                className="group relative h-1.5 w-full cursor-pointer overflow-hidden rounded-b-xl bg-zinc-900"
-                onClick={handleProgressClick}
-              >
+              {/* Timer + Progress bar */}
+              <div className="flex items-center gap-3 px-3 pb-2 md:px-4 md:pb-3 rounded-b-xl">
+                <span className="text-[10px] md:text-xs tabular-nums text-zinc-500 shrink-0">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
                 <div
-                  className="absolute inset-y-0 left-0 rounded-r-xl bg-gradient-to-r from-red-600 via-red-500 to-red-400 transition-[width]"
-                  style={{ width: `${Math.max(0, Math.min(100, progress * 100))}%` }}
-                />
-                <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="absolute inset-0 bg-gradient-to-r from-zinc-100/10 via-zinc-100/0 to-zinc-100/10" />
+                  className="group relative h-1.5 flex-1 cursor-pointer overflow-hidden rounded-full bg-zinc-900"
+                  onClick={handleProgressClick}
+                >
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-r-full bg-gradient-to-r from-red-600 via-red-500 to-red-400 transition-[width]"
+                    style={{ width: `${Math.max(0, Math.min(100, progress * 100))}%` }}
+                  />
+                  <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute inset-0 bg-gradient-to-r from-zinc-100/10 via-zinc-100/0 to-zinc-100/10" />
+                  </div>
                 </div>
               </div>
             </div>

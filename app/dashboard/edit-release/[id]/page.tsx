@@ -4,7 +4,7 @@ import { createClient } from '../../../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../../components/GlobalNav'
-import { canUploadAudioTrack } from '../../../../lib/subscriptions'
+import { canUploadAudioTrack, canAddLyrics, normalizeTier } from '../../../../lib/subscriptions'
 
 const AUDIO_BUCKET = 'band-logos'
 const AUDIO_PREFIX = 'audio'
@@ -21,6 +21,7 @@ type Track = {
   duration: string
   lyrics_by: string
   music_by: string
+  lyrics?: string
   audio_path?: string | null
   audio_file?: File | null
 }
@@ -33,6 +34,7 @@ export default function EditRelease() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [isPro, setIsPro] = useState(false)
+  const [showLyricsField, setShowLyricsField] = useState(false)
 
   const [title, setTitle] = useState('')
   const [releaseType, setReleaseType] = useState<'Single' | 'EP' | 'Album'>('EP')
@@ -57,12 +59,37 @@ export default function EditRelease() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
+      // Fetch release first to get band_id
+      const { data: release } = await supabase
+        .from('releases')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (!release) { router.push('/dashboard/manage'); return }
+
+      // Check user is leader or owner of this band
       const { data: band } = await supabase
         .from('bands')
-        .select('id, slug')
-        .eq('user_id', user.id)
+        .select('id, slug, user_id')
+        .eq('id', release.band_id)
         .single()
-      if (!band) { router.push('/dashboard'); return }
+      if (!band) { router.push('/dashboard/manage'); return }
+
+      const isOwner = band.user_id === user.id
+      const { data: memberRecord } = await supabase
+        .from('band_members')
+        .select('role')
+        .eq('band_id', band.id)
+        .eq('profile_id', user.id)
+        .eq('status', 'approved')
+        .single()
+
+      const canEdit = isOwner || (memberRecord?.role === 'leader')
+      if (!canEdit) {
+        router.push('/dashboard')
+        return
+      }
+
       setBandId(band.id)
       setBandSlug(band.slug)
 
@@ -72,16 +99,9 @@ export default function EditRelease() {
         .eq('user_id', user.id)
         .in('status', ['trialing', 'active'])
         .maybeSingle()
-      const tier = (sub?.tier as string) || 'free'
-      setIsPro(tier !== 'free' && (tier === 'pro' || tier === 'creator' || tier === 'studio' || tier === 'label'))
-
-      const { data: release } = await supabase
-        .from('releases')
-        .select('*')
-        .eq('id', id)
-        .eq('band_id', band.id)
-        .single()
-      if (!release) { router.push('/dashboard/manage'); return }
+      const tier = normalizeTier(sub?.tier as string)
+      setIsPro(tier === 'pro' || tier === 'pro_plus')
+      setShowLyricsField(canAddLyrics(tier))
 
       setTitle(release.title)
       setReleaseType(release.release_type)
@@ -104,6 +124,7 @@ export default function EditRelease() {
           duration: t.duration || '',
           lyrics_by: t.lyrics_by || '',
           music_by: t.music_by || '',
+          lyrics: t.lyrics || '',
           audio_path: t.audio_path || null,
           audio_file: null,
         })))
@@ -288,11 +309,12 @@ export default function EditRelease() {
           duration: t.duration?.trim() || null,
           lyrics_by: t.lyrics_by?.trim() || null,
           music_by: t.music_by?.trim() || null,
+          lyrics: t.lyrics?.trim() || null,
         })
       }
 
       setSuccess(true)
-      setTimeout(() => router.push('/dashboard/manage'), 1200)
+      setTimeout(() => router.push(`/releases/${id}`), 1200)
     } finally {
       setSaving(false)
     }
@@ -453,6 +475,15 @@ export default function EditRelease() {
                       onChange={e => updateTrack(index, 'music_by', e.target.value)}
                       className={inputClass} placeholder="Music by" />
                   </div>
+                  {showLyricsField && (
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Song lyrics (Pro+)</label>
+                      <textarea value={track.lyrics || ''}
+                        onChange={e => updateTrack(index, 'lyrics', e.target.value)}
+                        className={inputClass + ' min-h-24 resize-y'}
+                        placeholder="Paste lyrics here..." />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

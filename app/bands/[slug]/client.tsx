@@ -23,6 +23,7 @@ type Band = {
   youtube_url: string | null
   bandcamp_url: string | null
   soundcloud_url: string | null
+  merch_url: string | null
 }
 
 type Release = {
@@ -47,6 +48,7 @@ type Track = {
   duration: string | null
   lyrics_by: string | null
   music_by: string | null
+  lyrics: string | null
 }
 
 type Influence = { id: number; name: string }
@@ -249,6 +251,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
   const [currentUser, setCurrentUser] = useState<string | null>(null)
   const [activeTrack, setActiveTrack] = useState<{ releaseId: string, trackId: string } | null>(null)
   const [expandedRelease, setExpandedRelease] = useState<string | null>(null)
+  const [lyricsTrack, setLyricsTrack] = useState<Track | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [followPulse, setFollowPulse] = useState(false)
@@ -522,7 +525,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
 
   if (!band) return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Back to bands" currentUser={null} />
+      <GlobalNav backHref="/explore" backLabel="Back to bands" />
       <div className="border-b border-zinc-800 animate-pulse">
         <div className="max-w-5xl mx-auto px-6 py-12">
           <div className="flex flex-col md:flex-row items-start gap-6 md:gap-8">
@@ -558,7 +561,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/explore" backLabel="Back to bands" currentUser={currentUser} />
+      <GlobalNav backHref="/explore" backLabel="Back to bands" />
 
       {/* Sticky band name bar — slides in when hero scrolls out */}
       <div className={`fixed top-16 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800 transition-all duration-200 ${
@@ -692,7 +695,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
                 👑 Manage Band
               </Link>
             )}
-            {(band.instagram_url || band.facebook_url || band.youtube_url || band.bandcamp_url || band.soundcloud_url) && (
+            {(band.instagram_url || band.facebook_url || band.youtube_url || band.bandcamp_url || band.soundcloud_url || band.merch_url) && (
               <div className="flex items-center gap-2">
                 {band.instagram_url && (
                   <a href={band.instagram_url} target="_blank" rel="noopener noreferrer"
@@ -736,6 +739,15 @@ export default function BandPageClient({ slug }: { slug: string }) {
                     className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
                     <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M1.175 12.225c-.15 0-.271.119-.29.281l-.24 2.236.24 2.219c.019.163.14.281.29.281.149 0 .27-.118.289-.281l.272-2.219-.272-2.236c-.019-.162-.14-.281-.289-.281zm1.565-.899c-.169 0-.307.13-.325.298l-.24 3.135.24 3.06c.018.168.156.297.325.297.17 0 .307-.129.326-.297l.272-3.06-.272-3.135c-.019-.168-.156-.298-.326-.298zm1.565-.899c-.189 0-.344.146-.362.334l-.218 4.034.218 3.922c.018.188.173.334.362.334.19 0 .345-.146.363-.334l.247-3.922-.247-4.034c-.018-.188-.173-.334-.363-.334zm1.6.337c-.209 0-.381.163-.399.372l-.197 3.697.197 3.828c.018.209.19.372.399.372.21 0 .381-.163.4-.372l.222-3.828-.222-3.697c-.019-.209-.19-.372-.4-.372zm1.566-.225c-.229 0-.418.18-.436.409l-.176 3.922.176 3.75c.018.229.207.409.436.409.23 0 .419-.18.437-.409l.2-3.75-.2-3.922c-.018-.229-.207-.409-.437-.409zm9.6-3.407c-.337 0-.658.063-.956.177C15.847 4.01 14.076 2.25 11.869 2.25c-.553 0-1.09.106-1.58.3-.181.07-.229.14-.231.207v14.806c.002.071.055.131.126.143h10.723c.622 0 1.125-.497 1.125-1.11C22.032 9.963 18.513 7.357 15.071 7.132z"/>
+                    </svg>
+                  </a>
+                )}
+                {band.merch_url && (
+                  <a href={band.merch_url} target="_blank" rel="noopener noreferrer"
+                    title="Merchandise"
+                    className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
+                    <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
                   </a>
                 )}
@@ -890,14 +902,37 @@ export default function BandPageClient({ slug }: { slug: string }) {
                                   </span>
                                 </span>
                                 <div className="flex-1">
-                                  <span className={`text-sm ${isActive ? 'text-red-400' : 'text-zinc-300'}`}>
-                                    {track.title}
-                                  </span>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-sm ${isActive ? 'text-red-400' : 'text-zinc-300'}`}>
+                                      {track.title}
+                                    </span>
+                                    {track.lyrics && (
+                                      <button
+                                        type="button"
+                                        onClick={e => { e.stopPropagation(); setLyricsTrack(track) }}
+                                        className="text-[11px] text-zinc-500 hover:text-red-400 border border-zinc-700 hover:border-red-500 px-2 py-0.5 rounded transition-colors"
+                                      >
+                                        Lyrics
+                                      </button>
+                                    )}
+                                  </div>
                                   {(track.duration || track.lyrics_by || track.music_by) && (
-                                    <div className="flex flex-wrap gap-3 text-xs text-zinc-600 mt-0.5">
-                                      {track.duration && <span>⏱ {track.duration}</span>}
-                                      {track.lyrics_by && <span>✍️ <strong className="text-zinc-500">Lyrics:</strong> {track.lyrics_by}</span>}
-                                      {track.music_by && <span>🎸 <strong className="text-zinc-500">Music:</strong> {track.music_by}</span>}
+                                    <div className="flex flex-wrap gap-x-4 gap-y-0 text-xs text-zinc-600 mt-0.5 items-baseline">
+                                      {track.duration && <span className="shrink-0">⏱ {track.duration}</span>}
+                                      <span className="min-w-[11rem] shrink-0 inline-flex items-baseline gap-1.5">
+                                        {track.lyrics_by ? (
+                                          <>
+                                            <span className="text-zinc-500 shrink-0">✍️ Lyrics:</span>
+                                            <span>{track.lyrics_by}</span>
+                                          </>
+                                        ) : null}
+                                      </span>
+                                      {track.music_by && (
+                                        <span className="flex items-baseline gap-1.5 shrink-0">
+                                          <span className="text-zinc-500 shrink-0">🎸 Music:</span>
+                                          <span>{track.music_by}</span>
+                                        </span>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -1255,6 +1290,22 @@ export default function BandPageClient({ slug }: { slug: string }) {
           )}
         </div>
       </div>
+
+      {lyricsTrack && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setLyricsTrack(null)}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl max-w-lg w-full max-h-[80vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+              <h3 className="text-sm font-bold text-white">Lyrics — {lyricsTrack.title}</h3>
+              <button onClick={() => setLyricsTrack(null)} className="text-zinc-500 hover:text-white p-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(80vh-52px)] p-4">
+              <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed">{lyricsTrack.lyrics}</pre>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

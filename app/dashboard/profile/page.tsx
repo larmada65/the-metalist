@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import GlobalNav from '../../../components/GlobalNav'
 
 type Genre = { id: number; name: string }
@@ -28,6 +29,8 @@ export default function ProfileSettings() {
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [isProducer, setIsProducer] = useState(false)
   const [isSoundEngineer, setIsSoundEngineer] = useState(false)
+  const [isMusician, setIsMusician] = useState(false)
+  const [isFan, setIsFan] = useState(false)
   const [genreIds, setGenreIds] = useState<number[]>([])
   const [allGenres, setAllGenres] = useState<Genre[]>([])
 
@@ -55,6 +58,9 @@ export default function ProfileSettings() {
   const [savingPassword, setSavingPassword] = useState(false)
   const [passwordSuccess, setPasswordSuccess] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const supabase = createClient()
   const router = useRouter()
@@ -68,7 +74,7 @@ export default function ProfileSettings() {
 
       const [{ data: profile }, { data: genreData }] = await Promise.all([
         supabase.from('profiles')
-          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear')
+          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear')
           .eq('id', user.id).single(),
         supabase.from('genres_list').select('id, name').order('name'),
       ])
@@ -83,6 +89,8 @@ export default function ProfileSettings() {
         setWebsiteUrl(profile.website_url || '')
         setIsProducer(profile.is_producer ?? false)
         setIsSoundEngineer(profile.is_sound_engineer ?? false)
+        setIsMusician(profile.is_musician ?? false)
+        setIsFan(profile.is_fan ?? false)
         setGenreIds(profile.genre_ids || [])
         setAvatarUrl(profile.avatar_url || null)
         setAvatarPreview(profile.avatar_url || null)
@@ -146,6 +154,8 @@ export default function ProfileSettings() {
         website_url: websiteUrl.trim() || null,
         is_producer: isProducer,
         is_sound_engineer: isSoundEngineer,
+        is_musician: isMusician,
+        is_fan: isFan,
         genre_ids: genreIds.length > 0 ? genreIds : null,
         avatar_url: newAvatarUrl,
         musician_instruments: musicianInstruments.length > 0 ? musicianInstruments : null,
@@ -163,6 +173,26 @@ export default function ProfileSettings() {
       setTimeout(() => setProfileSuccess(false), 3000)
     }
     setSavingProfile(false)
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setDeleteError(data.error || 'Failed to delete account.')
+        setDeleteLoading(false)
+        return
+      }
+      await supabase.auth.signOut()
+      router.push('/')
+    } catch (err) {
+      setDeleteError('Failed to delete account.')
+    }
+    setDeleteLoading(false)
   }
 
   const handleChangePassword = async () => {
@@ -194,12 +224,22 @@ export default function ProfileSettings() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav backHref="/dashboard" backLabel="Back to dashboard" currentUser={userId} />
+      <GlobalNav backHref="/dashboard" backLabel="Back to dashboard" />
 
       <div className="max-w-xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-display uppercase tracking-tight mb-12">
+        <div className="flex flex-wrap items-center gap-4 mb-12">
+          <h1 className="text-4xl font-display uppercase tracking-tight">
           Profile <span className="text-red-500">Settings</span>
-        </h1>
+          </h1>
+          {username && (
+            <Link
+              href={`/members/${username}`}
+              className="px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-red-500 hover:text-white transition-colors"
+            >
+              View profile
+            </Link>
+          )}
+        </div>
 
         <div className="flex flex-col gap-6">
 
@@ -272,8 +312,12 @@ export default function ProfileSettings() {
               {/* Roles */}
               <div>
                 <label className={labelClass}>Roles / Skills</label>
-                <p className="text-xs text-zinc-600 mb-3">Check what applies — extra profile sections will appear below.</p>
+                <p className="text-xs text-zinc-600 mb-3">Check what applies — shown on your profile at signup and here.</p>
                 <div className="flex gap-3 flex-wrap">
+                  <button type="button" onClick={() => setIsMusician(v => !v)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${isMusician ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+                    🎸 Musician
+                  </button>
                   <button type="button" onClick={() => setIsProducer(v => !v)}
                     className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${isProducer ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
                     🎚 Producer
@@ -281,6 +325,10 @@ export default function ProfileSettings() {
                   <button type="button" onClick={() => setIsSoundEngineer(v => !v)}
                     className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${isSoundEngineer ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
                     🎛 Sound Engineer
+                  </button>
+                  <button type="button" onClick={() => setIsFan(v => !v)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${isFan ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+                    🎧 Fan
                   </button>
                 </div>
               </div>
@@ -412,6 +460,33 @@ export default function ProfileSettings() {
               </div>
             </div>
           )}
+
+          {/* ── Delete account ─────────────────────────────────────── */}
+          <div className="border border-red-900/50 rounded-xl p-6">
+            <h2 className="text-xs uppercase tracking-widest text-red-500/80 mb-2">Danger Zone</h2>
+            <p className="text-sm text-zinc-400 mb-4">
+              Permanently delete your account and all associated data. This cannot be undone.
+            </p>
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                placeholder='Type DELETE to confirm'
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-colors text-sm placeholder-zinc-600"
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading || deleteConfirm !== 'DELETE'}
+                  className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-red-900/60 border border-red-800 text-red-300 hover:bg-red-900/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {deleteLoading ? 'Deleting...' : 'Delete account permanently'}
+                </button>
+                {deleteError && <p className="text-red-400 text-xs">{deleteError}</p>}
+              </div>
+            </div>
+          </div>
 
           {/* ── Change password ────────────────────────────────────── */}
           <div className="border border-zinc-800 rounded-xl p-6">

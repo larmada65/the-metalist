@@ -4,7 +4,7 @@ import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../components/GlobalNav'
-import { canUploadAudioTrack } from '../../../lib/subscriptions'
+import { canUploadAudioTrack, canAddLyrics, normalizeTier } from '../../../lib/subscriptions'
 
 const AUDIO_BUCKET = 'band-logos'
 const AUDIO_PREFIX = 'audio'
@@ -15,6 +15,7 @@ type Track = {
   duration?: string
   lyrics_by?: string
   music_by?: string
+  lyrics?: string
   audio_path?: string | null
   audio_file?: File | null
 }
@@ -30,6 +31,7 @@ export default function AddRelease() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isPro, setIsPro] = useState(false)
+  const [showLyricsField, setShowLyricsField] = useState(false)
   const [paymentInfo, setPaymentInfo] = useState<{
     newBillable: number
     amountCents: number
@@ -88,8 +90,9 @@ export default function AddRelease() {
         .eq('user_id', user.id)
         .in('status', ['trialing', 'active'])
         .maybeSingle()
-      const tier = (sub?.tier as string) || 'free'
-      setIsPro(tier !== 'free' && (tier === 'pro' || tier === 'creator' || tier === 'studio' || tier === 'label'))
+      const tier = normalizeTier(sub?.tier as string)
+      setIsPro(tier === 'pro' || tier === 'pro_plus')
+      setShowLyricsField(canAddLyrics(tier))
     }
     load()
   }, [])
@@ -289,6 +292,7 @@ export default function AddRelease() {
           duration: t.duration?.trim() || null,
           lyrics_by: t.lyrics_by?.trim() || null,
           music_by: t.music_by?.trim() || null,
+          lyrics: t.lyrics?.trim() || null,
         })
       }
 
@@ -468,6 +472,15 @@ export default function AddRelease() {
                       onChange={e => updateTrack(index, 'music_by', e.target.value)}
                       className={inputClass} placeholder="Music by" />
                   </div>
+                  {showLyricsField && (
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Song lyrics (Pro+)</label>
+                      <textarea value={track.lyrics || ''}
+                        onChange={e => updateTrack(index, 'lyrics', e.target.value)}
+                        className={inputClass + ' min-h-24 resize-y'}
+                        placeholder="Paste lyrics here..." />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -5,14 +5,35 @@ import { stripe } from '../../../../lib/stripe'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+const BEDROOM_PRICE_ID = process.env.STRIPE_BEDROOM_MONTHLY_PRICE_ID?.trim()
 const PRO_PRICE_ID = process.env.STRIPE_PRO_MONTHLY_PRICE_ID?.trim()
+const PRO_PLUS_PRICE_ID = process.env.STRIPE_PRO_PLUS_MONTHLY_PRICE_ID?.trim()
 
 export async function POST(req: NextRequest) {
-  if (!stripe || !PRO_PRICE_ID || !process.env.NEXT_PUBLIC_APP_URL) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, '')
+  if (!stripe || !baseUrl) {
+    return NextResponse.json(
+      { error: 'Server not configured.', hint: 'Set NEXT_PUBLIC_APP_URL in .env.local' },
+      { status: 500 }
+    )
+  }
+
+  let body: { tier?: string } = {}
+  try {
+    body = await req.json()
+  } catch {}
+  const tier = (body.tier as string) || 'pro'
+
+  const priceId =
+    tier === 'bedroom' ? BEDROOM_PRICE_ID
+    : tier === 'pro_plus' ? PRO_PLUS_PRICE_ID
+    : PRO_PRICE_ID
+
+  if (!priceId) {
     return NextResponse.json(
       {
-        error: 'Pro subscription is not configured.',
-        hint: 'Set STRIPE_PRO_MONTHLY_PRICE_ID and NEXT_PUBLIC_APP_URL in .env.local. Create a $3/month recurring price in Stripe Dashboard.',
+        error: `Subscription tier "${tier}" is not configured.`,
+        hint: `Set STRIPE_${tier === 'bedroom' ? 'BEDROOM' : tier === 'pro_plus' ? 'PRO_PLUS' : 'PRO'}_MONTHLY_PRICE_ID in .env.local`,
       },
       { status: 500 }
     )
@@ -27,15 +48,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'You must be logged in to upgrade.' }, { status: 401 })
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '')
-
   try {
     const session = await stripe!.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [
         {
-          price: PRO_PRICE_ID,
+          price: priceId,
           quantity: 1,
         },
       ],

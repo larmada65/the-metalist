@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/components/AuthProvider'
 
 type QuickResult = {
   type: 'band' | 'release' | 'member'
@@ -45,12 +46,13 @@ const NAV_LINKS = [
 ]
 
 export default function GlobalNav({ backHref, backLabel, username, onLogout, currentUser }: GlobalNavProps) {
+  const { user: authUser } = useAuth()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<QuickResult[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [selfUser, setSelfUser] = useState<string | null | undefined>(undefined)
   const [selfUsername, setSelfUsername] = useState<string | null>(null)
+  const [profileRoles, setProfileRoles] = useState<{ is_producer: boolean; is_sound_engineer: boolean; is_musician: boolean } | null>(null)
   const [notifCount, setNotifCount] = useState(0)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifs, setNotifs] = useState<Notif[]>([])
@@ -90,8 +92,15 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
 
   const fetchUserData = async (userId: string) => {
     const { data: profile } = await supabase
-      .from('profiles').select('username').eq('id', userId).single()
-    if (profile) setSelfUsername(profile.username)
+      .from('profiles').select('username, is_producer, is_sound_engineer, is_musician').eq('id', userId).single()
+    if (profile) {
+      setSelfUsername(profile.username)
+      setProfileRoles({
+        is_producer: profile.is_producer ?? false,
+        is_sound_engineer: profile.is_sound_engineer ?? false,
+        is_musician: profile.is_musician ?? false,
+      })
+    }
     try {
       const [{ count: notifs }, { count: msgs }] = await Promise.all([
         supabase.from('notifications').select('id', { count: 'exact', head: true })
@@ -104,16 +113,13 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
     } catch (_) {}
   }
 
+  // resolvedUser: use prop override when provided, otherwise use server-initialized auth from context
+  const resolvedUser = currentUser !== undefined ? currentUser : authUser
+
   useEffect(() => {
-    if (currentUser !== undefined) {
-      if (currentUser) fetchUserData(currentUser)
-      return
-    }
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setSelfUser(user?.id ?? null)
-      if (user) fetchUserData(user.id)
-    })
-  }, [currentUser])
+    if (resolvedUser) fetchUserData(resolvedUser)
+    else setProfileRoles(null)
+  }, [resolvedUser])
 
   // Close notif dropdown on outside click
   useEffect(() => {
@@ -130,7 +136,6 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
   }, [])
 
 
-  const resolvedUser = currentUser !== undefined ? currentUser : selfUser
   const resolvedUsername = username || selfUsername
 
   const handleInternalLogout = async () => {
@@ -265,6 +270,18 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
               {l.label}
             </Link>
           ))}
+          {profileRoles && (profileRoles.is_producer || profileRoles.is_sound_engineer) && (
+            <Link href="/demos"
+              className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
+              Demos
+            </Link>
+          )}
+          {profileRoles?.is_musician && (
+            <Link href="/prod-engineers"
+              className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
+              Prod/Engineers
+            </Link>
+          )}
         </div>
 
         {/* Right side */}
@@ -437,6 +454,18 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
                   {l.label}
                 </Link>
               ))}
+              {profileRoles && (profileRoles.is_producer || profileRoles.is_sound_engineer) && (
+                <Link href="/demos" onClick={() => setMobileOpen(false)}
+                  className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900 last:border-0">
+                  Demos
+                </Link>
+              )}
+              {profileRoles?.is_musician && (
+                <Link href="/prod-engineers" onClick={() => setMobileOpen(false)}
+                  className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900 last:border-0">
+                  Prod/Engineers
+                </Link>
+              )}
             </div>
 
             {/* Account section */}
@@ -566,28 +595,7 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
         </div>
       )}
 
-      {/* ── Mobile Bottom Nav (logged-in only) ───────────────────────────────── */}
-      {currentUser && (
-        <nav className="fixed bottom-0 inset-x-0 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 flex justify-around items-center py-2 md:hidden z-40">
-          {[
-            { href: '/',          label: 'Home',    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /> },
-            { href: '/explore',   label: 'Explore', icon: <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /> },
-            { href: '/feed',      label: 'Feed',    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /> },
-            { href: '/dashboard', label: 'Me',      icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /> },
-          ].map(({ href, label, icon }) => {
-            const active = pathname === href || (href !== '/' && pathname.startsWith(href))
-            return (
-              <Link key={href} href={href}
-                className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${active ? 'text-red-500' : 'text-zinc-500 hover:text-zinc-300'}`}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                  {icon}
-                </svg>
-                <span className="text-[10px] uppercase tracking-widest font-bold">{label}</span>
-              </Link>
-            )
-          })}
-        </nav>
-      )}
+      {/* Mobile bottom nav moved to layout (MobileBottomNav) — shows on every page */}
     </>
   )
 }

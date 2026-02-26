@@ -21,6 +21,10 @@ export default function Register() {
   const [emailSent, setEmailSent] = useState(false)
   const [genreIds, setGenreIds] = useState<number[]>([])
   const [allGenres, setAllGenres] = useState<Genre[]>([])
+  const [isProducer, setIsProducer] = useState(false)
+  const [isSoundEngineer, setIsSoundEngineer] = useState(false)
+  const [isMusician, setIsMusician] = useState(false)
+  const [isFan, setIsFan] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -43,6 +47,10 @@ export default function Register() {
     }
     if (password.length < 6) {
       setError('Password must be at least 6 characters.'); return
+    }
+    if (!isProducer && !isSoundEngineer && !isMusician && !isFan) {
+      setError('Please choose at least one role: Producer, Sound Engineer, Musician, or Fan.')
+      return
     }
     setLoading(true)
 
@@ -74,6 +82,10 @@ export default function Register() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         genre_ids: genreIds.length > 0 ? genreIds : null,
+        is_producer: isProducer,
+        is_sound_engineer: isSoundEngineer,
+        is_musician: isMusician,
+        is_fan: isFan,
       }
       const { error: profileError } = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' })
 
@@ -192,6 +204,38 @@ export default function Register() {
                 <button type="button" onClick={() => setShowConfirm(!showConfirm)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                   <EyeIcon visible={showConfirm} />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs uppercase tracking-widest text-zinc-500 mb-1 block">
+                I am a… <span className="text-zinc-700 normal-case tracking-normal">(required — select all that apply)</span>
+              </label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <button type="button" onClick={() => setIsMusician(v => !v)}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
+                    isMusician ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  }`}>
+                  🎸 Musician
+                </button>
+                <button type="button" onClick={() => setIsProducer(v => !v)}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
+                    isProducer ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  }`}>
+                  🎚 Producer
+                </button>
+                <button type="button" onClick={() => setIsSoundEngineer(v => !v)}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
+                    isSoundEngineer ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  }`}>
+                  🔊 Sound Engineer
+                </button>
+                <button type="button" onClick={() => setIsFan(v => !v)}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
+                    isFan ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  }`}>
+                  🎧 Fan
                 </button>
               </div>
             </div>

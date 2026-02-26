@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../../components/GlobalNav'
 import { useToast } from '../../../../components/Toast'
-import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from '../../../../lib/subscriptions'
+import { SUBSCRIPTION_LIMITS, normalizeTier, canAddMerch, type SubscriptionTier } from '../../../../lib/subscriptions'
 
 type Band = {
   id: string
@@ -22,6 +22,7 @@ type Band = {
   youtube_url: string | null
   bandcamp_url: string | null
   soundcloud_url: string | null
+  merch_url: string | null
   is_published: boolean
   audio_storage_bytes?: number
   audio_tracks_uploaded_this_period?: number
@@ -151,6 +152,7 @@ export default function ManageBand() {
   const [editYoutube, setEditYoutube] = useState('')
   const [editBandcamp, setEditBandcamp] = useState('')
   const [editSoundcloud, setEditSoundcloud] = useState('')
+  const [editMerchUrl, setEditMerchUrl] = useState('')
   const [editGenreIds, setEditGenreIds] = useState<number[]>([])
   const [editInfluenceIds, setEditInfluenceIds] = useState<number[]>([])
   const [influenceSearch, setInfluenceSearch] = useState('')
@@ -222,9 +224,7 @@ export default function ManageBand() {
         .maybeSingle()
 
       if (!subError && subscription) {
-        // Map legacy creator/studio/label to pro
-        const tier = subscription.tier as string
-        setSubscriptionTier(tier === 'free' || tier === 'pro' ? tier : 'pro')
+        setSubscriptionTier(normalizeTier(subscription.tier as string))
         setSubscriptionStatus(subscription.status)
         setAudioPeriodEnd(subscription.current_period_end)
       } else {
@@ -321,6 +321,7 @@ export default function ManageBand() {
     setEditYoutube(band.youtube_url || '')
     setEditBandcamp(band.bandcamp_url || '')
     setEditSoundcloud(band.soundcloud_url || '')
+    setEditMerchUrl(band.merch_url || '')
     setEditingInfo(true)
   }
 
@@ -337,6 +338,7 @@ export default function ManageBand() {
       youtube_url: editYoutube || null,
       bandcamp_url: editBandcamp || null,
       soundcloud_url: editSoundcloud || null,
+      merch_url: canAddMerch(subscriptionTier) ? (editMerchUrl || null) : band.merch_url ?? null,
     }).eq('id', band.id)
 
     await supabase.from('band_influences').delete().eq('band_id', band.id)
@@ -935,7 +937,8 @@ export default function ManageBand() {
                       { label: 'YouTube', value: editYoutube, set: setEditYoutube, placeholder: 'https://youtube.com/@yourband' },
                       { label: 'Bandcamp', value: editBandcamp, set: setEditBandcamp, placeholder: 'https://yourband.bandcamp.com' },
                       { label: 'SoundCloud', value: editSoundcloud, set: setEditSoundcloud, placeholder: 'https://soundcloud.com/yourband' },
-                    ].map(({ label, value, set, placeholder }) => (
+                      ...(canAddMerch(subscriptionTier) ? [{ label: 'Merchandise (Pro+)', value: editMerchUrl, set: setEditMerchUrl, placeholder: 'https://yourmerchstore.com' }] : []),
+                    ].map(({ label, value, set, placeholder }: any) => (
                       <div key={label} className="flex items-center gap-3">
                         <span className="text-xs text-zinc-600 w-24 uppercase tracking-widest shrink-0">{label}</span>
                         <input type="url" value={value} onChange={e => set(e.target.value)}

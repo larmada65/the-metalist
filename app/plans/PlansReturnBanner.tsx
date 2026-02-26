@@ -12,7 +12,7 @@ export default function PlansReturnBanner() {
     const upgraded = searchParams.get('upgraded')
     if (!upgraded) return
     if (upgraded === 'success') {
-      setMessage({ type: 'success', text: 'Payment successful. You’re now on Pro.' })
+      setMessage({ type: 'success', text: 'Payment successful. Your plan has been updated.' })
     } else if (upgraded === 'canceled') {
       setMessage({ type: 'info', text: 'Checkout canceled. You can upgrade anytime.' })
     }

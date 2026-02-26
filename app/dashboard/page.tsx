@@ -145,7 +145,7 @@ export default function Dashboard() {
 
   if (loading) return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav currentUser={null} />
+      <GlobalNav />
       <div className="max-w-3xl mx-auto px-6 py-16 animate-pulse">
         <div className="h-14 bg-zinc-900 rounded w-56 mb-12" />
         <div className="flex flex-col gap-3">
@@ -165,7 +165,7 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav currentUser={currentUser} username={username} onLogout={handleLogout} />
+      <GlobalNav username={username} onLogout={handleLogout} />
 
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-12">
