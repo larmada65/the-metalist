@@ -332,6 +332,9 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
               </Link>
 
               {/* Desktop auth links */}
+              <Link href="/plans" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest hidden md:block">
+                Manage Plan
+              </Link>
               <Link href="/dashboard" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest hidden md:block">
                 Dashboard
               </Link>
@@ -445,6 +448,10 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
                       Signed in as <span className="text-white font-bold">{resolvedUsername}</span>
                     </p>
                   )}
+                  <Link href="/plans"
+                    className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900">
+                    Manage Plan
+                  </Link>
                   <Link href="/dashboard"
                     className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900">
                     Dashboard

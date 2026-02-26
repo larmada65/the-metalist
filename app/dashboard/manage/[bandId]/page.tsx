@@ -4,6 +4,7 @@ import { createClient } from '../../../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../../components/GlobalNav'
+import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from '../../../../lib/subscriptions'
 
 type Band = {
   id: string
@@ -21,6 +22,9 @@ type Band = {
   bandcamp_url: string | null
   soundcloud_url: string | null
   is_published: boolean
+  audio_storage_bytes?: number
+  audio_tracks_uploaded_this_period?: number
+  audio_period_start?: string
 }
 
 type Release = {
@@ -154,6 +158,11 @@ export default function ManageBand() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const router = useRouter()
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string>('active')
+  const [audioTracksUsed, setAudioTracksUsed] = useState(0)
+  const [audioStorageUsed, setAudioStorageUsed] = useState(0)
+  const [audioPeriodEnd, setAudioPeriodEnd] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -180,6 +189,28 @@ export default function ManageBand() {
       if (!bandData) { router.push('/dashboard'); return }
       setBand(bandData)
       setBandPicPreview(bandData.band_pic_url)
+
+      // Audio usage from band row (defaults safe if columns not present yet)
+      setAudioTracksUsed(bandData.audio_tracks_uploaded_this_period ?? 0)
+      setAudioStorageUsed(bandData.audio_storage_bytes ?? 0)
+      setAudioPeriodEnd(null)
+
+      // Owner subscription (if subscriptions table exists)
+      const { data: subscription, error: subError } = await supabase
+        .from('subscriptions')
+        .select('tier, status, current_period_end')
+        .eq('user_id', user.id)
+        .in('status', ['trialing', 'active'])
+        .maybeSingle()
+
+      if (!subError && subscription) {
+        setSubscriptionTier(subscription.tier as SubscriptionTier)
+        setSubscriptionStatus(subscription.status)
+        setAudioPeriodEnd(subscription.current_period_end)
+      } else {
+        setSubscriptionTier('free')
+        setSubscriptionStatus('inactive')
+      }
 
       const { data: releaseData } = await supabase
         .from('releases')
@@ -683,6 +714,13 @@ export default function ManageBand() {
 
   const inputClass = "w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-colors text-sm"
   const labelClass = "text-xs uppercase tracking-widest text-zinc-500 mb-2 block"
+  const tierLimits = SUBSCRIPTION_LIMITS[subscriptionTier]
+  const tracksLimit = tierLimits.maxTracksPerMonth
+  const storageLimitMb = tierLimits.maxStorageBytes / (1024 * 1024)
+  const tracksUsedLabel = tracksLimit > 0 ? `${audioTracksUsed}/${tracksLimit} tracks this period` : 'Audio uploads locked on Free'
+  const storageUsedLabel = tierLimits.maxStorageBytes > 0
+    ? `${(audioStorageUsed / (1024 * 1024)).toFixed(1)} / ${storageLimitMb.toFixed(0)} MB used`
+    : 'No audio storage on Free'
 
   if (loading) return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -724,6 +762,33 @@ export default function ManageBand() {
                 {band.is_published ? '● Published' : '○ Draft'}
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Audio plan summary */}
+        <div className="border border-zinc-800 rounded-xl p-4 mb-10 bg-zinc-950">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Audio Plan</p>
+              <p className="text-sm">
+                <span className="font-bold capitalize">{subscriptionTier}</span>{' '}
+                {subscriptionTier === 'free'
+                  ? '— upgrade to upload MP3s directly to Metalist.'
+                  : 'plan for this band.'}
+              </p>
+              <p className="text-xs text-zinc-600 mt-1">
+                {tracksUsedLabel} · {storageUsedLabel}
+                {audioPeriodEnd && (
+                  <> · Renews {new Date(audioPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+                )}
+              </p>
+            </div>
+            <Link
+              href="/plans"
+              className="text-[11px] font-bold uppercase tracking-widest border border-zinc-700 hover:border-red-500 text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 transition-colors shrink-0"
+            >
+              Manage plan
+            </Link>
           </div>
         </div>
 

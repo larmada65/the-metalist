@@ -127,7 +127,14 @@ export default function Register() {
       ) : (
       <div className="w-full max-w-md border border-zinc-800 rounded p-8">
           <h1 className="text-2xl font-display uppercase tracking-wide mb-2">Join Metalist</h1>
-          <p className="text-zinc-500 text-sm mb-8">Create your account and start discovering new metal.</p>
+          <p className="text-zinc-500 text-sm mb-3">Create your account and start discovering new metal.</p>
+          <p className="text-zinc-600 text-xs mb-6">
+            Bands can keep using YouTube or SoundCloud embeds for free. Direct MP3 hosting
+            and extra tools come with Creator, Studio, and Label plans on the{" "}
+            <Link href="/plans" className="text-red-500 hover:text-red-400 underline underline-offset-2">
+              plans page
+            </Link>.
+          </p>
 
           {error && (
             <div className="bg-red-900/30 border border-red-700 text-red-400 text-sm px-4 py-3 rounded mb-6">
