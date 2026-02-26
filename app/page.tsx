@@ -26,7 +26,7 @@ export default async function HomePage() {
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from('bands').select('id', { count: 'exact', head: true }).eq('is_published', true),
-    supabase.from('releases').select('id', { count: 'exact', head: true }),
+    supabase.from('releases').select('id', { count: 'exact', head: true }).eq('published', true),
     supabase.from('band_members')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved').not('profile_id', 'is', null),
@@ -37,12 +37,15 @@ export default async function HomePage() {
     supabase.from('ratings').select('release_id, score'),
     supabase.from('releases')
       .select('id, title, release_type, release_year, cover_url, bands(name, slug)')
+      .eq('published', true)
       .eq('bands.is_published', true),
     supabase.from('releases')
       .select('id, title, release_type, release_year, cover_url, bands(name, slug)')
+      .eq('published', true)
       .order('created_at', { ascending: false }).limit(6),
     supabase.from('reviews')
       .select('id, title, content, rating, created_at, profiles(username), releases(title, cover_url, bands(name, slug))')
+      .eq('releases.published', true)
       .order('created_at', { ascending: false }).limit(3),
     supabase.from('shows')
       .select('id, date, city, country, venue, ticket_url, bands(name, slug, logo_url)')

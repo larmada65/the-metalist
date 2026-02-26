@@ -129,8 +129,8 @@ export default function Register() {
           <h1 className="text-2xl font-display uppercase tracking-wide mb-2">Join Metalist</h1>
           <p className="text-zinc-500 text-sm mb-3">Create your account and start discovering new metal.</p>
           <p className="text-zinc-600 text-xs mb-6">
-            Bands can keep using YouTube or SoundCloud embeds for free. Direct MP3 hosting
-            and extra tools come with Creator, Studio, and Label plans on the{" "}
+            Bands can keep using YouTube or SoundCloud embeds for free. To release albums
+            and songs with hosted MP3s, you need a Pro membership — see the{" "}
             <Link href="/plans" className="text-red-500 hover:text-red-400 underline underline-offset-2">
               plans page
             </Link>.

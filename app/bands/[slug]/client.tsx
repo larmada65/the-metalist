@@ -4,6 +4,7 @@ import { createClient } from '../../../lib/supabase'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useToast } from '../../../components/Toast'
+import { useAudioPlayer } from '../../../components/AudioPlayerProvider'
 const GlobalNav = dynamic(() => import('../../../components/GlobalNav').then(mod => mod.default), { ssr: false })
 
 type Band = {
@@ -42,6 +43,7 @@ type Track = {
   title: string
   track_number: number
   embed_url: string
+  audio_path: string | null
   duration: string | null
   lyrics_by: string | null
   music_by: string | null
@@ -266,6 +268,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
   const [userMemberStatus, setUserMemberStatus] = useState<string | null>(null)
   const [heroInView, setHeroInView] = useState(true)
   const heroSentinelRef = useRef<HTMLDivElement>(null)
+  const { setTrackAndPlay, currentTrack } = useAudioPlayer()
 
   useEffect(() => {
     const load = async () => {
@@ -279,7 +282,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
 
       // Releases with tracks and ratings
       const { data: releaseData } = await supabase
-        .from('releases').select('*').eq('band_id', bandData.id).order('release_year', { ascending: false })
+        .from('releases').select('*').eq('band_id', bandData.id).eq('published', true).order('release_year', { ascending: false })
 
       if (releaseData && releaseData.length > 0) {
         const releaseIds = releaseData.map(r => r.id)
@@ -792,7 +795,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
                         }
                       }}
                       className="w-full flex items-center gap-4 p-4 hover:bg-zinc-950 transition-colors text-left">
-                      <div className="w-16 h-16 rounded bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
+                      <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
                         {release.cover_url
                           ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
                           : <div className="w-full h-full flex items-center justify-center text-2xl">🎵</div>
@@ -827,14 +830,64 @@ export default function BandPageClient({ slug }: { slug: string }) {
                         )}
                         {release.tracks.map(track => {
                           const isActive = activeTrack?.trackId === track.id
-                          const embed = getEmbedUrl(track.embed_url)
+                          const hasHostedAudio = !!track.audio_path
+                          const embed = track.embed_url ? getEmbedUrl(track.embed_url) : null
+
+                          const handleClick = () => {
+                            const nextActive = isActive ? null : { releaseId: release.id, trackId: track.id }
+                            setActiveTrack(nextActive)
+
+                            if (hasHostedAudio && track.audio_path) {
+                              const { data } = supabase.storage
+                                .from('band-logos')
+                                .getPublicUrl(track.audio_path)
+                              if (data?.publicUrl) {
+                                setTrackAndPlay({
+                                  id: track.id,
+                                  title: track.title,
+                                  bandName: band.name,
+                                  bandSlug: band.slug,
+                                  releaseTitle: release.title,
+                                  releaseId: release.id,
+                                  coverUrl: release.cover_url,
+                                  src: data.publicUrl,
+                                })
+                              }
+                            }
+                          }
+
+                          const isPlayingHere = currentTrack?.id === track.id && hasHostedAudio
+                          const isEmbedOnly = !hasHostedAudio && !!embed
+
                           return (
                             <div key={track.id} className="border-b border-zinc-800 last:border-0">
                               <button
-                                onClick={() => setActiveTrack(isActive ? null : { releaseId: release.id, trackId: track.id })}
+                                onClick={handleClick}
                                 className="w-full flex items-center gap-4 px-4 py-3 hover:bg-zinc-950 transition-colors text-left">
-                                <span className="text-xs text-zinc-600 w-5 text-center">
-                                  {isActive ? '▶' : track.track_number}
+                                <span
+                                  className={`flex h-8 items-center gap-1.5 rounded-full border px-2 text-[11px] uppercase tracking-widest shrink-0 tabular ${
+                                    isPlayingHere
+                                      ? 'border-red-600/80 bg-red-950/40 text-red-300'
+                                      : hasHostedAudio
+                                        ? 'border-red-700/70 bg-red-950/20 text-red-300'
+                                        : 'border-zinc-700 bg-zinc-950 text-zinc-300'
+                                  }`}
+                                >
+                                  <span className="flex h-4 w-4 items-center justify-center">
+                                    {isPlayingHere ? (
+                                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <rect x="6" y="5" width="4" height="14" rx="1" />
+                                        <rect x="14" y="5" width="4" height="14" rx="1" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M7 5.25C7 4.558 7.75 4.15 8.333 4.5l9.333 5.25a1 1 0 010 1.732l-9.333 5.25A1 1 0 017 15.75v-10.5z" />
+                                      </svg>
+                                    )}
+                                  </span>
+                                  <span className="text-[11px] font-semibold text-zinc-100">
+                                    {track.track_number}
+                                  </span>
                                 </span>
                                 <div className="flex-1">
                                   <span className={`text-sm ${isActive ? 'text-red-400' : 'text-zinc-300'}`}>
@@ -849,17 +902,22 @@ export default function BandPageClient({ slug }: { slug: string }) {
                                   )}
                                 </div>
                                 <span className="text-xs text-zinc-600">
-                                  {embed.type === 'youtube' ? 'YT' : embed.type === 'soundcloud' ? 'SC' : ''}
+                                  {hasHostedAudio ? 'MP3' : embed ? (embed.type === 'youtube' ? 'YT' : embed.type === 'soundcloud' ? 'SC' : '') : ''}
                                 </span>
                               </button>
                               {isActive && (
                                 <div className="px-4 pb-4">
-                                  {embed.type === 'youtube' && (
+                                  {hasHostedAudio && track.audio_path && (
+                                    <p className="text-xs text-zinc-500">
+                                      Playing hosted audio in the bottom player.
+                                    </p>
+                                  )}
+                                  {!hasHostedAudio && embed?.type === 'youtube' && (
                                     <iframe src={embed.url} className="w-full rounded-lg" style={{ height: '200px' }}
                                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                       allowFullScreen />
                                   )}
-                                  {embed.type === 'soundcloud' && (
+                                  {!hasHostedAudio && embed?.type === 'soundcloud' && (
                                     <iframe
                                       src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(embed.url)}&color=%23ff0000&auto_play=true&hide_related=true&show_comments=false&show_user=false`}
                                       className="w-full rounded-lg" style={{ height: '120px' }} allow="autoplay" />

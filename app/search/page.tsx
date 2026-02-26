@@ -131,6 +131,7 @@ function SearchContent() {
     const { data: releaseData } = await supabase
       .from('releases')
       .select('id, title, release_type, release_year, cover_url, bands(name, slug)')
+      .eq('published', true)
       .ilike('title', `%${term}%`)
       .limit(10)
     setReleases((releaseData || []) as any)

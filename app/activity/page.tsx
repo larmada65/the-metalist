@@ -65,6 +65,7 @@ export default function ActivityPage() {
           .limit(15),
         supabase.from('releases')
           .select('id, title, release_type, cover_url, created_at, bands(name, slug, genre_ids)')
+          .eq('published', true)
           .order('created_at', { ascending: false })
           .limit(15),
         supabase.from('shows')

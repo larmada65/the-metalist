@@ -71,7 +71,7 @@ export default function ComparePage() {
       { data: ratings },
       { count: shows },
     ] = await Promise.all([
-      supabase.from('releases').select('id').eq('band_id', band.id),
+      supabase.from('releases').select('id').eq('band_id', band.id).eq('published', true),
       supabase.from('band_members').select('id').eq('band_id', band.id).eq('status', 'approved').neq('role', 'leader'),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('band_id', band.id),
       supabase.from('ratings').select('score, releases!inner(band_id)').eq('releases.band_id', band.id),

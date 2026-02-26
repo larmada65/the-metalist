@@ -8,6 +8,7 @@ export default async function ReleasesPage() {
     supabase
       .from('releases')
       .select('id, title, release_type, release_year, cover_url, created_at, bands(name, slug, logo_url, genre_ids)')
+      .eq('published', true)
       .order('created_at', { ascending: false }),
     supabase.from('ratings').select('release_id, score'),
     supabase.from('genres_list').select('id, name').order('name'),

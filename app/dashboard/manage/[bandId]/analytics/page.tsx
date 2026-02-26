@@ -307,7 +307,7 @@ export default function BandAnalyticsPage() {
                 {releases.map(rel => (
                   <Link key={rel.id} href={`/releases/${rel.id}`}
                     className="flex items-center gap-3 px-5 py-3 border-b border-zinc-800 last:border-0 hover:bg-zinc-950 transition-colors group">
-                    <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                    <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {rel.cover_url
                         ? <img src={rel.cover_url} alt={rel.title} className="w-full h-full object-cover" />
                         : <span className="text-sm">🎵</span>}

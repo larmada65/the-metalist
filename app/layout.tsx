@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "../components/Toast";
+import { AudioPlayerProvider } from "../components/AudioPlayerProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,10 +31,12 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ToastProvider>
-          {/* pb-16 on mobile gives clearance for the bottom nav bar */}
-          <div className="pb-16 md:pb-0">
-            {children}
-          </div>
+          <AudioPlayerProvider>
+            {/* Extra bottom padding for mobile nav + global audio player */}
+            <div className="pb-28 md:pb-8">
+              {children}
+            </div>
+          </AudioPlayerProvider>
         </ToastProvider>
       </body>
     </html>

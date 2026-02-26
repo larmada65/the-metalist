@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '../../../../lib/supabase'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../../components/GlobalNav'
+import { useToast } from '../../../../components/Toast'
 import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from '../../../../lib/subscriptions'
 
 type Band = {
@@ -33,6 +34,7 @@ type Release = {
   release_type: string
   release_year: number | null
   cover_url: string | null
+  published?: boolean
 }
 
 type Member = {
@@ -158,11 +160,27 @@ export default function ManageBand() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const toast = useToast()
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free')
   const [subscriptionStatus, setSubscriptionStatus] = useState<string>('active')
   const [audioTracksUsed, setAudioTracksUsed] = useState(0)
   const [audioStorageUsed, setAudioStorageUsed] = useState(0)
   const [audioPeriodEnd, setAudioPeriodEnd] = useState<string | null>(null)
+
+  // Show toast when returning from Stripe checkout and clear the query param (once per param presence)
+  const releasePaymentRef = useRef<string | null>(null)
+  useEffect(() => {
+    const releasePayment = searchParams.get('releasePayment')
+    if (!releasePayment || !bandId || releasePaymentRef.current === releasePayment) return
+    releasePaymentRef.current = releasePayment
+    if (releasePayment === 'success') {
+      toast.success('Payment completed. You can now publish or save your release with hosted tracks.')
+    } else if (releasePayment === 'canceled') {
+      toast.info('Payment canceled. Complete payment when you\'re ready to publish hosted tracks.')
+    }
+    router.replace(`/dashboard/manage/${bandId}`, { scroll: false })
+  }, [searchParams, bandId, router, toast])
 
   useEffect(() => {
     const load = async () => {
@@ -204,7 +222,9 @@ export default function ManageBand() {
         .maybeSingle()
 
       if (!subError && subscription) {
-        setSubscriptionTier(subscription.tier as SubscriptionTier)
+        // Map legacy creator/studio/label to pro
+        const tier = subscription.tier as string
+        setSubscriptionTier(tier === 'free' || tier === 'pro' ? tier : 'pro')
         setSubscriptionStatus(subscription.status)
         setAudioPeriodEnd(subscription.current_period_end)
       } else {
@@ -214,7 +234,7 @@ export default function ManageBand() {
 
       const { data: releaseData } = await supabase
         .from('releases')
-        .select('id, title, release_type, release_year, cover_url')
+        .select('id, title, release_type, release_year, cover_url, published')
         .eq('band_id', bandId)
         .order('release_year', { ascending: false })
       if (releaseData) setReleases(releaseData)
@@ -714,13 +734,7 @@ export default function ManageBand() {
 
   const inputClass = "w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-colors text-sm"
   const labelClass = "text-xs uppercase tracking-widest text-zinc-500 mb-2 block"
-  const tierLimits = SUBSCRIPTION_LIMITS[subscriptionTier]
-  const tracksLimit = tierLimits.maxTracksPerMonth
-  const storageLimitMb = tierLimits.maxStorageBytes / (1024 * 1024)
-  const tracksUsedLabel = tracksLimit > 0 ? `${audioTracksUsed}/${tracksLimit} tracks this period` : 'Audio uploads locked on Free'
-  const storageUsedLabel = tierLimits.maxStorageBytes > 0
-    ? `${(audioStorageUsed / (1024 * 1024)).toFixed(1)} / ${storageLimitMb.toFixed(0)} MB used`
-    : 'No audio storage on Free'
+  const tierDescription = SUBSCRIPTION_LIMITS[subscriptionTier].description
 
   if (loading) return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -771,17 +785,22 @@ export default function ManageBand() {
             <div>
               <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Audio Plan</p>
               <p className="text-sm">
-                <span className="font-bold capitalize">{subscriptionTier}</span>{' '}
-                {subscriptionTier === 'free'
-                  ? '— upgrade to upload MP3s directly to Metalist.'
-                  : 'plan for this band.'}
+                <span className="font-bold capitalize">{subscriptionTier}</span> — {tierDescription}
               </p>
-              <p className="text-xs text-zinc-600 mt-1">
-                {tracksUsedLabel} · {storageUsedLabel}
-                {audioPeriodEnd && (
-                  <> · Renews {new Date(audioPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
-                )}
-              </p>
+              {audioPeriodEnd && subscriptionTier === 'pro' && (
+                <p className="text-xs text-zinc-600 mt-1">
+                  Renews {new Date(audioPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+              )}
+              {(audioTracksUsed > 0 || audioStorageUsed > 0) && subscriptionTier === 'pro' && (
+                <p className="text-xs text-zinc-600 mt-1">
+                  {audioTracksUsed > 0 && <span>{audioTracksUsed} hosted track{audioTracksUsed !== 1 ? 's' : ''} this period</span>}
+                  {audioTracksUsed > 0 && audioStorageUsed > 0 && ' · '}
+                  {audioStorageUsed > 0 && (
+                    <span>{(audioStorageUsed / 1024 / 1024).toFixed(1)} MB stored</span>
+                  )}
+                </p>
+              )}
             </div>
             <Link
               href="/plans"
@@ -1347,7 +1366,14 @@ export default function ManageBand() {
                         : <span className="text-xl">🎵</span>}
                     </div>
                     <div className="flex-1">
-                      <p className="font-bold">{release.title}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold">{release.title}</p>
+                        {release.published === false && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-amber-700 text-amber-400 bg-amber-950/40">
+                            Draft — complete payment to publish
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-zinc-600 mt-0.5">
                         {release.release_type}{release.release_year ? ` · ${release.release_year}` : ''}
                       </p>

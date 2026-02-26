@@ -4,6 +4,10 @@ import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../components/GlobalNav'
+import { canUploadAudioTrack } from '../../../lib/subscriptions'
+
+const AUDIO_BUCKET = 'band-logos'
+const AUDIO_PREFIX = 'audio'
 
 type Track = {
   title: string
@@ -11,13 +15,26 @@ type Track = {
   duration?: string
   lyrics_by?: string
   music_by?: string
+  audio_path?: string | null
+  audio_file?: File | null
+}
+
+function slugify(s: string): string {
+  return s.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40) || 'track'
 }
 
 export default function AddRelease() {
   const [bandId, setBandId] = useState<string | null>(null)
   const [bandSlug, setBandSlug] = useState<string | null>(null)
+  const [releaseId, setReleaseId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isPro, setIsPro] = useState(false)
+  const [paymentInfo, setPaymentInfo] = useState<{
+    newBillable: number
+    amountCents: number
+    checkoutUrl: string | null
+  } | null>(null)
 
   // Release fields
   const [title, setTitle] = useState('')
@@ -38,12 +55,10 @@ export default function AddRelease() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      // Get bandId from URL
       const params = new URLSearchParams(window.location.search)
       const bandIdParam = params.get('bandId')
       if (!bandIdParam) { router.push('/dashboard'); return }
 
-      // Verify user is leader of this band
       const { data: memberRecord } = await supabase
         .from('band_members')
         .select('role')
@@ -66,6 +81,15 @@ export default function AddRelease() {
       if (!band) { router.push('/dashboard'); return }
       setBandId(band.id)
       setBandSlug(band.slug)
+
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('tier')
+        .eq('user_id', user.id)
+        .in('status', ['trialing', 'active'])
+        .maybeSingle()
+      const tier = (sub?.tier as string) || 'free'
+      setIsPro(tier !== 'free' && (tier === 'pro' || tier === 'creator' || tier === 'studio' || tier === 'label'))
     }
     load()
   }, [])
@@ -88,112 +112,219 @@ export default function AddRelease() {
     setTracks(prev => prev.filter((_, i) => i !== index))
   }
 
-  const updateTrack = (index: number, field: keyof Track, value: string) => {
+  const updateTrack = (index: number, field: keyof Track, value: string | File | null) => {
     setTracks(prev => prev.map((t, i) => i === index ? { ...t, [field]: value } : t))
   }
 
+  const handleTrackAudioFile = (index: number, file: File | null) => {
+    if (!file) {
+      updateTrack(index, 'audio_file', null)
+      return
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      setError('Each MP3 must be under 25MB.')
+      return
+    }
+    if (!file.type.includes('audio') && !file.name.toLowerCase().endsWith('.mp3')) {
+      setError('Please upload an MP3 or other audio file.')
+      return
+    }
+    setError('')
+    updateTrack(index, 'audio_file', file)
+    updateTrack(index, 'embed_url', '')
+  }
+
   const normalizeUrl = (url: string) => {
-    // Convert YouTube watch URLs to embed URLs
     const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
     if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`
-
-    // Convert SoundCloud URLs — keep as-is, we'll use oEmbed style
     if (url.includes('soundcloud.com')) return url
-
     return url
   }
 
   const handleSubmit = async () => {
     setError('')
+    setPaymentInfo(null)
     if (!title.trim()) { setError('Release title is required.'); return }
     if (!bandId) { setError('No band found.'); return }
 
-    const validTracks = tracks.filter(t => t.title.trim() && t.embed_url.trim())
+    const validTracks = tracks.filter(t =>
+      t.title.trim() && (t.embed_url.trim() || t.audio_path || t.audio_file)
+    )
     if (!coverFile) { setError('Cover art is required.'); return }
-    if (validTracks.length === 0) { setError('Add at least one track with a title and URL.'); return }
-
-    setLoading(true)
-
-    // Upload cover if provided
-    let coverUrl = null
-    if (coverFile) {
-      const fileExt = coverFile.name.split('.').pop()
-      const fileName = `${bandId}-${Date.now()}.${fileExt}`
-      const { error: uploadError } = await supabase.storage
-        .from('band-logos')
-        .upload(`covers/${fileName}`, coverFile)
-
-      if (uploadError) {
-        setError('Failed to upload cover: ' + uploadError.message)
-        setLoading(false)
-        return
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('band-logos')
-        .getPublicUrl(`covers/${fileName}`)
-      coverUrl = publicUrl
-    }
-
-    // Create release
-    const { data: release, error: releaseError } = await supabase
-      .from('releases')
-      .insert({
-        band_id: bandId,
-        title: title.trim(),
-        release_type: releaseType,
-        release_year: parseInt(releaseYear),
-        description: description || null,
-        cover_url: coverUrl,
-      })
-      .select()
-      .single()
-
-    if (releaseError || !release) {
-      setError(releaseError?.message || 'Something went wrong.')
-      setLoading(false)
+    if (validTracks.length === 0) {
+      setError('Add at least one track with a title and either a YouTube/SoundCloud URL or an MP3 upload (Pro).')
       return
     }
 
-    // Insert tracks
-    await supabase.from('tracks').insert(
-      validTracks.map((t, i) => ({
-        release_id: release.id,
-        title: t.title.trim(),
-        track_number: i + 1,
-        embed_url: normalizeUrl(t.embed_url.trim()),
-        duration: t.duration?.trim() || null,
-        lyrics_by: t.lyrics_by?.trim() || null,
-        music_by: t.music_by?.trim() || null,
-      }))
-    )
+    const hostedTrackCount = validTracks.filter(t => !!t.audio_file).length
 
-    // Notify band followers
+    for (const t of validTracks) {
+      if (t.audio_file && !canUploadAudioTrack('pro').allowed) {
+        setError('MP3 uploads require a Pro membership. See Plans.')
+        return
+      }
+    }
+
+    setLoading(true)
+
     try {
-      const { data: followers } = await supabase
-        .from('follows')
-        .select('user_id')
-        .eq('band_id', bandId)
+      let createdReleaseId = releaseId
+      let createdRelease: any = null
 
-      if (followers && followers.length > 0) {
-        const { data: bandData } = await supabase
-          .from('bands')
-          .select('name')
-          .eq('id', bandId)
+      // Create the release (once) so we have an ID to associate with payments and tracks.
+      if (!createdReleaseId) {
+        let coverUrl = null
+        if (coverFile) {
+          const fileExt = coverFile.name.split('.').pop()
+          const fileName = `${bandId}-${Date.now()}.${fileExt}`
+          const { error: uploadError } = await supabase.storage
+            .from('band-logos')
+            .upload(`covers/${fileName}`, coverFile)
+
+          if (uploadError) {
+            setError('Failed to upload cover: ' + uploadError.message)
+            setLoading(false)
+            return
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('band-logos')
+            .getPublicUrl(`covers/${fileName}`)
+          coverUrl = publicUrl
+        }
+
+        const { data: release, error: releaseError } = await supabase
+          .from('releases')
+          .insert({
+            band_id: bandId,
+            title: title.trim(),
+            release_type: releaseType,
+            release_year: parseInt(releaseYear),
+            description: description || null,
+            cover_url: coverUrl,
+            published: hostedTrackCount === 0,
+          })
+          .select()
           .single()
 
-        await supabase.from('notifications').insert(
-          followers.map((f: any) => ({
-            user_id: f.user_id,
-            title: `${bandData?.name || 'A band you follow'} released "${title.trim()}"`,
-            body: `New ${releaseType} on The Metalist.`,
-            href: `/bands/${bandSlug}`,
-          }))
-        )
-      }
-    } catch (_) {}
+        if (releaseError || !release) {
+          setError(releaseError?.message || 'Something went wrong.')
+          setLoading(false)
+          return
+        }
 
-    router.push(`/bands/${bandSlug}`)
+        createdReleaseId = release.id as string
+        createdRelease = release
+        setReleaseId(createdReleaseId)
+      }
+
+      const finalReleaseId = createdReleaseId!
+
+      // If there are hosted tracks, run payment gating before we upload audio.
+      if (hostedTrackCount > 0 && bandId) {
+        try {
+          const res = await fetch('/api/release-payments/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              releaseId: finalReleaseId,
+              bandId,
+              hostedTrackCount,
+            }),
+          })
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const msg = data?.error || 'Could not start payment for hosted tracks.'
+            setError(msg)
+            setLoading(false)
+            return
+          }
+
+          const payment = await res.json()
+
+          if (payment.newBillable > 0) {
+            setPaymentInfo(payment)
+            setError(
+              `This release includes ${payment.newBillable} hosted track${payment.newBillable === 1 ? '' : 's'} that require payment before publishing.`
+            )
+            setLoading(false)
+            return
+          }
+        } catch (e) {
+          setError('Could not contact payments service for hosted tracks. Try again in a moment.')
+          setLoading(false)
+          return
+        }
+      }
+
+      // At this point either there are no hosted tracks or we have already paid for them.
+      for (let i = 0; i < validTracks.length; i++) {
+        const t = validTracks[i]
+        let embedUrl = t.embed_url.trim() ? normalizeUrl(t.embed_url.trim()) : ''
+        let audioPath: string | null = t.audio_path || null
+
+        if (t.audio_file) {
+          const ext = t.audio_file.name.toLowerCase().endsWith('.mp3') ? 'mp3' : t.audio_file.name.split('.').pop() || 'mp3'
+          const safeName = `${i + 1}-${slugify(t.title)}.${ext}`
+          const path = `${AUDIO_PREFIX}/${bandId}/${finalReleaseId}/${safeName}`
+          const { error: upErr } = await supabase.storage
+            .from(AUDIO_BUCKET)
+            .upload(path, t.audio_file, { contentType: t.audio_file.type || 'audio/mpeg' })
+          if (upErr) {
+            setError('Failed to upload track: ' + upErr.message)
+            setLoading(false)
+            return
+          }
+          audioPath = path
+          embedUrl = ''
+        }
+
+        await supabase.from('tracks').insert({
+          release_id: finalReleaseId,
+          title: t.title.trim(),
+          track_number: i + 1,
+          embed_url: embedUrl,
+          audio_path: audioPath,
+          duration: t.duration?.trim() || null,
+          lyrics_by: t.lyrics_by?.trim() || null,
+          music_by: t.music_by?.trim() || null,
+        })
+      }
+
+      await supabase
+        .from('releases')
+        .update({ published: true })
+        .eq('id', finalReleaseId)
+
+      try {
+        const { data: followers } = await supabase
+          .from('follows')
+          .select('user_id')
+          .eq('band_id', bandId)
+
+        if (followers && followers.length > 0) {
+          const { data: bandData } = await supabase
+            .from('bands')
+            .select('name')
+            .eq('id', bandId)
+            .single()
+
+          await supabase.from('notifications').insert(
+            followers.map((f: any) => ({
+              user_id: f.user_id,
+              title: `${bandData?.name || 'A band you follow'} released "${title.trim()}"`,
+              body: `New ${releaseType} on The Metalist.`,
+              href: `/bands/${bandSlug}`,
+            }))
+          )
+        }
+      } catch (_) {}
+
+      router.push(`/bands/${bandSlug}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const inputClass = "w-full bg-zinc-900 border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-colors"
@@ -214,7 +345,6 @@ export default function AddRelease() {
         )}
 
         <div className="flex flex-col gap-6">
-          {/* Release info */}
           <div>
             <label className={labelClass}>Release Title <span className="text-red-500">*</span></label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)}
@@ -245,7 +375,6 @@ export default function AddRelease() {
               placeholder="Tell us about this release..." />
           </div>
 
-          {/* Cover art */}
           <div>
             <label className={labelClass}>Cover Art</label>
             <p className="text-zinc-600 text-xs mb-3">Optional but recommended. Square image, max 2MB.</p>
@@ -267,12 +396,29 @@ export default function AddRelease() {
               onChange={handleCoverChange} className="hidden" />
           </div>
 
-          {/* Tracks */}
           <div>
             <label className={labelClass}>Tracks <span className="text-red-500">*</span></label>
             <p className="text-zinc-600 text-xs mb-4">
-              Paste YouTube or SoundCloud URLs. YouTube: copy the URL from your browser. SoundCloud: copy the track URL.
+              Paste a YouTube or SoundCloud URL, or upload an MP3 (Pro members). Each track needs a title and one source.
+              Hosted MP3s are billed at $2 per track when you publish via Stripe.
             </p>
+            {paymentInfo && paymentInfo.newBillable > 0 && paymentInfo.checkoutUrl && (
+              <div className="mb-3 rounded border border-amber-700 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
+                <p className="mb-1">
+                  This release adds {paymentInfo.newBillable} hosted track{paymentInfo.newBillable === 1 ? '' : 's'} (
+                  ${(paymentInfo.amountCents / 100).toFixed(2)}). Complete payment in Stripe, then click
+                  &nbsp;<span className="font-semibold">Publish Release</span> again to finish.
+                </p>
+                <a
+                  href={paymentInfo.checkoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center rounded border border-amber-400 px-3 py-1 text-[11px] font-bold uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-colors"
+                >
+                  Pay for hosted tracks
+                </a>
+              </div>
+            )}
             <div className="flex flex-col gap-3">
               {tracks.map((track, index) => (
                 <div key={index} className="border border-zinc-800 rounded p-4 flex flex-col gap-3">
@@ -289,8 +435,28 @@ export default function AddRelease() {
                     onChange={e => updateTrack(index, 'title', e.target.value)}
                     className={inputClass} placeholder="Track title" />
                   <input type="url" value={track.embed_url}
-                    onChange={e => updateTrack(index, 'embed_url', e.target.value)}
-                    className={inputClass} placeholder="https://youtube.com/watch?v=... or https://soundcloud.com/..." />
+                    onChange={e => {
+                      updateTrack(index, 'embed_url', e.target.value)
+                      if (e.target.value.trim()) updateTrack(index, 'audio_file', null)
+                    }}
+                    className={inputClass}
+                    placeholder="https://youtube.com/watch?v=... or https://soundcloud.com/..." />
+                  {isPro && (
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Or upload MP3 (Pro)</label>
+                      <input
+                        type="file"
+                        accept="audio/mpeg,.mp3,audio/*"
+                        onChange={e => handleTrackAudioFile(index, e.target.files?.[0] || null)}
+                        className="block w-full text-xs text-zinc-400 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-red-600 file:text-white file:text-xs file:uppercase file:tracking-widest file:font-bold"
+                      />
+                      {track.audio_file && (
+                        <p className="text-xs text-green-500 mt-1">
+                          {track.audio_file.name} ({(track.audio_file.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-2">
                     <input type="text" value={track.duration || ''}
                       onChange={e => updateTrack(index, 'duration', e.target.value)}

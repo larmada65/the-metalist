@@ -111,7 +111,7 @@ export default function ReviewsPage() {
           <div className="flex flex-col gap-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="border border-zinc-800 rounded-xl p-5 flex gap-4">
-                <div className="w-14 h-14 rounded-lg bg-zinc-800 animate-pulse shrink-0" />
+                <div className="w-14 h-14 bg-zinc-800 animate-pulse shrink-0" />
                 <div className="flex-1 space-y-2 pt-1">
                   <div className="h-3.5 bg-zinc-800 rounded animate-pulse w-1/3" />
                   <div className="h-3 bg-zinc-800 rounded animate-pulse w-1/4" />

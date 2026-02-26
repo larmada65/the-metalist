@@ -20,10 +20,10 @@ export default async function RankingsPage() {
     supabase.from('genres_list').select('id, name').order('name'),
     supabase.from('ratings').select('release_id, score'),
     supabase.from('follows').select('band_id'),
-    supabase.from('releases').select('id, title, release_type, release_year, cover_url, band_id'),
+    supabase.from('releases').select('id, title, release_type, release_year, cover_url, band_id').eq('published', true),
     supabase.from('bands').select('id, name, slug, logo_url, country, genre_ids').eq('is_published', true),
     supabase.from('follows').select('band_id').gte('created_at', cutoff),
-    supabase.from('releases').select('band_id').gte('created_at', cutoff),
+    supabase.from('releases').select('band_id').eq('published', true).gte('created_at', cutoff),
   ])
 
   const bands = bandData ?? []

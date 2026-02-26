@@ -363,7 +363,7 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
             <div className="mt-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
               {latestReleases.map(release => (
                 <Link key={release.id} href={`/releases/${release.id}`} className="group">
-                  <div className="aspect-square bg-zinc-900 overflow-hidden border border-zinc-800 rounded-lg group-hover:border-zinc-700 group-hover:bg-zinc-900 transition-colors mb-2.5">
+                  <div className="aspect-square bg-zinc-900 overflow-hidden border border-zinc-800 group-hover:border-zinc-700 group-hover:bg-zinc-900 transition-colors mb-2.5">
                     {release.cover_url
                       ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center opacity-10 text-3xl">🎵</div>}
@@ -398,7 +398,7 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
             <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-5">
               {topReleases.map(release => (
                 <Link key={release.id} href={`/releases/${release.id}`} className="group">
-                  <div className="aspect-square bg-zinc-900 overflow-hidden border border-zinc-800 rounded-lg group-hover:border-zinc-700 group-hover:bg-zinc-900 transition-colors mb-3">
+                  <div className="aspect-square bg-zinc-900 overflow-hidden border border-zinc-800 group-hover:border-zinc-700 group-hover:bg-zinc-900 transition-colors mb-3">
                     {release.cover_url
                       ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center opacity-10 text-3xl">🎵</div>}
@@ -497,7 +497,7 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
                 <Link key={review.id} href={`/reviews/${review.id}`}
                   className="border border-zinc-800 rounded-xl p-5 hover:border-zinc-700 transition-colors group flex flex-col gap-3 bg-zinc-950">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {review.release_cover
                         ? <img src={review.release_cover} alt={review.release_title} className="w-full h-full object-cover" />
                         : <span className="text-xl opacity-20">🎵</span>}

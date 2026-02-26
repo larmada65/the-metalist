@@ -1,92 +1,56 @@
-export type SubscriptionTier = 'free' | 'creator' | 'studio' | 'label';
+export type SubscriptionTier = 'free' | 'pro';
+
+/** Pro membership: unlocks the ability to release albums and songs (host MP3s on Metalist). */
+export const PRO_MONTHLY_PRICE_DOLLARS = 3;
+/** Per-track charge when publishing a release with hosted audio. e.g. 5-track EP = $10. */
+export const PRICE_PER_TRACK_DOLLARS = 2;
 
 type TierLimits = {
-  /** Maximum number of new audio tracks a band owner can upload in the current billing period. */
-  maxTracksPerMonth: number;
-  /** Soft cap on total audio storage across all bands owned by the user (in bytes). */
-  maxStorageBytes: number;
-  /**
-   * How many bands under one owner can have hosted audio.
-   * null = unlimited bands (subject to storage/track limits).
-   */
-  maxBandsWithAudio: number | null;
+  /** If true, user can upload/host MP3s (subject to pay-per-release at publish time). */
+  canHostAudio: boolean;
+  /** Human-readable summary for UI. */
+  description: string;
 };
 
 export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, TierLimits> = {
   free: {
-    maxTracksPerMonth: 0,
-    maxStorageBytes: 0,
-    maxBandsWithAudio: 0,
+    canHostAudio: false,
+    description: 'Embed from YouTube / SoundCloud only. Upgrade to Pro to release albums and songs on Metalist.',
   },
-  creator: {
-    // ~1 track per week
-    maxTracksPerMonth: 4,
-    // ~500 MB total audio
-    maxStorageBytes: 500 * 1024 * 1024,
-    maxBandsWithAudio: 1,
-  },
-  studio: {
-    maxTracksPerMonth: 10,
-    // ~2 GB total audio
-    maxStorageBytes: 2 * 1024 * 1024 * 1024,
-    maxBandsWithAudio: 2,
-  },
-  label: {
-    maxTracksPerMonth: 40,
-    // ~10 GB total audio
-    maxStorageBytes: 10 * 1024 * 1024 * 1024,
-    maxBandsWithAudio: null,
+  pro: {
+    canHostAudio: true,
+    description: 'Release albums and songs with hosted MP3s. Pay per release when you publish (e.g. $2 per track).',
   },
 };
 
 export type BandAudioUsage = {
-  /** Bytes of audio currently stored for this band. */
   audioStorageBytes: number;
-  /** Number of tracks uploaded in the current billing period. */
   audioTracksUploadedThisPeriod: number;
 };
 
 export type UploadCheckResult = {
   allowed: boolean;
-  /** Optional human-readable explanation when not allowed. */
   reason?: string;
 };
 
 /**
- * Check whether a band is allowed to upload another audio track under the
- * given subscription tier and per-band usage.
- *
- * This does not account for how many bands under this owner already have audio;
- * that should be enforced at the query level when you know the owner's bands.
+ * Pro members can upload; payment is collected per release at publish time.
+ * Free members cannot host audio.
  */
-export function canUploadAudioTrack(
-  tier: SubscriptionTier,
-  usage: BandAudioUsage,
-  newFileSizeBytes: number
-): UploadCheckResult {
-  const limits = SUBSCRIPTION_LIMITS[tier];
-
-  if (limits.maxTracksPerMonth === 0) {
+export function canUploadAudioTrack(tier: SubscriptionTier): UploadCheckResult {
+  if (tier === 'free') {
     return {
       allowed: false,
-      reason: 'Audio uploads are only available on paid plans.',
+      reason: 'You need a Pro membership to release albums and songs with hosted audio. See Plans.',
     };
   }
-
-  if (usage.audioTracksUploadedThisPeriod >= limits.maxTracksPerMonth) {
-    return {
-      allowed: false,
-      reason: 'You have reached your track upload limit for this period.',
-    };
-  }
-
-  if (usage.audioStorageBytes + newFileSizeBytes > limits.maxStorageBytes) {
-    return {
-      allowed: false,
-      reason: 'Uploading this file would exceed your audio storage limit.',
-    };
-  }
-
   return { allowed: true };
 }
 
+/**
+ * Cost in dollars for a release with the given number of hosted tracks.
+ * Pro only; free cannot host.
+ */
+export function releaseCostDollars(trackCount: number): number {
+  return trackCount * PRICE_PER_TRACK_DOLLARS;
+}

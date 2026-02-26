@@ -109,6 +109,7 @@ export default function FeedPage() {
         const { data: releases } = await supabase
           .from('releases')
           .select('id, title, release_type, cover_url, created_at, band_id')
+          .eq('published', true)
           .in('band_id', followedBandIds)
           .order('created_at', { ascending: false })
           .limit(30)

@@ -19,6 +19,11 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Default body copy alignment */
+p {
+  text-align: justify;
+}
+
 /* Subtle film grain overlay */
 body::after {
   content: '';

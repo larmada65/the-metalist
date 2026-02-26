@@ -184,6 +184,7 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
 
     const { data: releases } = await supabase
       .from('releases').select('id, title, release_type, cover_url, bands(name, slug)')
+      .eq('published', true)
       .ilike('title', `%${term}%`).limit(2)
     releases?.forEach((r: any) => quick.push({ type: 'release', label: r.title, sublabel: `${r.release_type}${r.bands?.name ? ` · ${r.bands.name}` : ''}`, href: `/releases/${r.id}`, image: r.cover_url }))
 
