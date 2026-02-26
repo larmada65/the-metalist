@@ -47,6 +47,14 @@ export default async function RootLayout({
               <div className="pb-28 md:pb-24">
                 {children}
               </div>
+              {/* Solid black backdrop at bottom on mobile — obscures content under Safari bar */}
+              <div
+                className="md:hidden fixed bottom-0 left-0 right-0 z-30 pointer-events-none bg-black"
+                style={{
+                  height: 'calc(5rem + env(safe-area-inset-bottom, 0px) + 2.5rem)',
+                }}
+                aria-hidden
+              />
               <MobileBottomNav />
             </AudioPlayerProvider>
           </ToastProvider>
