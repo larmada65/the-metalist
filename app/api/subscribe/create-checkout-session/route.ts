@@ -29,24 +29,39 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '')
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    payment_method_types: ['card'],
-    line_items: [
+  try {
+    const session = await stripe!.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: PRO_PRICE_ID,
+          quantity: 1,
+        },
+      ],
+      client_reference_id: user.id,
+      metadata: { user_id: user.id },
+      success_url: `${baseUrl}/plans?upgraded=success`,
+      cancel_url: `${baseUrl}/plans?upgraded=canceled`,
+    })
+
+    if (!session.url) {
+      return NextResponse.json(
+        { error: 'Could not create checkout session. Stripe did not return a URL.' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ url: session.url })
+  } catch (err: any) {
+    console.error('[subscribe] Stripe checkout error:', err?.message ?? err)
+    const msg = err?.message ?? 'Unknown Stripe error'
+    return NextResponse.json(
       {
-        price: PRO_PRICE_ID,
-        quantity: 1,
+        error: 'Could not start checkout.',
+        hint: msg,
       },
-    ],
-    client_reference_id: user.id,
-    metadata: { user_id: user.id },
-    success_url: `${baseUrl}/plans?upgraded=success`,
-    cancel_url: `${baseUrl}/plans?upgraded=canceled`,
-  })
-
-  if (!session.url) {
-    return NextResponse.json({ error: 'Could not create checkout session.' }, { status: 500 })
+      { status: 500 }
+    )
   }
-
-  return NextResponse.json({ url: session.url })
 }

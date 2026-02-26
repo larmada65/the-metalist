@@ -17,13 +17,15 @@ export async function POST(req: NextRequest) {
   const missing: string[] = []
   if (!stripe) missing.push('STRIPE_SECRET_KEY')
   if (!appUrl) missing.push('NEXT_PUBLIC_APP_URL')
-  if (missing.length > 0) {
+  if (missing.length > 0 || !stripe) {
     const error =
       'Payments are not configured. Missing: ' +
-      missing.join(', ') +
+      (missing.length > 0 ? missing.join(', ') : 'STRIPE_SECRET_KEY or NEXT_PUBLIC_APP_URL') +
       '. Add them to .env.local in the project root and restart the dev server (see PAYMENTS.md).'
     return NextResponse.json({ error }, { status: 500 })
   }
+
+  const stripeClient = stripe as NonNullable<typeof stripe>
 
   let body: Body;
   try {
@@ -121,7 +123,7 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL!.replace(/\/+$/, '');
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await stripeClient.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
     line_items: [

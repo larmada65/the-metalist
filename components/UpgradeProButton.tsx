@@ -23,7 +23,9 @@ export function UpgradeProButton({ tier, isLoggedIn }: Props) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data?.error || 'Could not start checkout.')
+        const msg = data?.error || 'Could not start checkout.'
+        const hint = data?.hint ? ` (${data.hint})` : ''
+        setError(msg + hint)
         setLoading(false)
         return
       }
