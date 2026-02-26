@@ -83,7 +83,7 @@ export default function DemosPage() {
 
       const combined: DemoWithProfile[] = demosList
         .filter((d: { profile_id: string }) => profileMap[d.profile_id])
-        .map((d: { id: string; title: string | null; audio_path: string; visibility: string; created_at: string; profile_id: string }) => ({
+        .map((d: { id: string; title: string | null; audio_path: string; visibility: string; key: string | null; tempo: number | null; created_at: string; profile_id: string }) => ({
           ...d,
           profiles: profileMap[d.profile_id],
         }))
