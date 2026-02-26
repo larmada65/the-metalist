@@ -566,7 +566,7 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
         <section className="border-t border-zinc-800 px-6 py-20 text-center">
           <div className="max-w-lg mx-auto">
             <h2 className="text-4xl font-display uppercase tracking-tight mb-4">Ready to be heard?</h2>
-            <p className="text-zinc-600 text-sm mb-8">Free forever. No algorithms. Just metal.</p>
+            <p className="text-zinc-600 text-sm mb-8">Built for metalheads. No algorithms. Just metal.</p>
             <div className="flex gap-3 justify-center flex-wrap">
               <Link href="/register"
                 className="bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-widest px-10 py-3.5 rounded-lg transition-colors">
