@@ -143,7 +143,7 @@ export default async function PlansPage() {
                   }
                 `}
               >
-                {tier.popular && (
+                {'popular' in tier && tier.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest bg-red-600 text-white rounded-full">
                       Most popular
