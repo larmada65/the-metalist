@@ -4,6 +4,7 @@ import { createClient } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../components/GlobalNav'
+import { useToast } from '../../components/Toast'
 
 type BandMembership = {
   band_id: string
@@ -48,6 +49,7 @@ type FollowingEntry = {
 }
 
 export default function Dashboard() {
+  const toast = useToast()
   const [username, setUsername] = useState('')
   const [currentUser, setCurrentUser] = useState<string | null>(null)
   const [memberships, setMemberships] = useState<BandMembership[]>([])
@@ -98,23 +100,13 @@ export default function Dashboard() {
         .order('created_at', { ascending: false })
       if (followingData) setFollowing(followingData as any)
 
-      // Get pending join requests for bands where user is leader
-      const { data: leaderBands } = await supabase
+      // Get invitations for this user to join bands
+      const { data: pendingData } = await supabase
         .from('band_members')
-        .select('band_id')
+        .select('id, name, status, band_id, bands(id, name)')
         .eq('profile_id', user.id)
-        .eq('role', 'leader')
-        .eq('status', 'approved')
-
-      if (leaderBands && leaderBands.length > 0) {
-        const leaderBandIds = leaderBands.map((b: any) => b.band_id)
-        const { data: pendingData } = await supabase
-          .from('band_members')
-          .select('id, name, status, profile_id, bands(id, name), profiles(username)')
-          .in('band_id', leaderBandIds)
-          .eq('status', 'pending')
-        if (pendingData) setPendingRequests(pendingData as any)
-      }
+        .eq('status', 'invited')
+      if (pendingData) setPendingRequests(pendingData as any)
 
       setLoading(false)
     }
@@ -127,21 +119,47 @@ export default function Dashboard() {
   }
 
   const handleApprove = async (requestId: string) => {
-    await supabase.from('band_members').update({ status: 'approved' }).eq('id', requestId)
+    const req = pendingRequests.find(r => r.id === requestId)
     setPendingRequests(prev => prev.filter(r => r.id !== requestId))
+    const { error } = await supabase.from('band_members').update({ status: 'approved' }).eq('id', requestId)
+    if (error) {
+      if (req) setPendingRequests(prev => [...prev, req])
+      toast.error('Could not accept invite — try again')
+    } else {
+      toast.success(`Joined ${req?.bands?.name ?? 'band'} 🤘`)
+    }
   }
 
   const handleReject = async (requestId: string) => {
-    await supabase.from('band_members').update({ status: 'rejected' }).eq('id', requestId)
+    const req = pendingRequests.find(r => r.id === requestId)
     setPendingRequests(prev => prev.filter(r => r.id !== requestId))
+    const { error } = await supabase.from('band_members').update({ status: 'rejected' }).eq('id', requestId)
+    if (error) {
+      if (req) setPendingRequests(prev => [...prev, req])
+      toast.error('Could not reject invite — try again')
+    }
   }
 
   const leaderBands = memberships.filter(m => m.role === 'leader')
   const memberBands = memberships.filter(m => m.role === 'member')
 
   if (loading) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <p className="text-zinc-600 animate-pulse">Loading...</p>
+    <main className="min-h-screen bg-black text-white">
+      <GlobalNav currentUser={null} />
+      <div className="max-w-3xl mx-auto px-6 py-16 animate-pulse">
+        <div className="h-14 bg-zinc-900 rounded w-56 mb-12" />
+        <div className="flex flex-col gap-3">
+          {[0,1,2].map(i => (
+            <div key={i} className="border border-zinc-800 rounded-xl p-6 flex items-center gap-6">
+              <div className="w-16 h-16 rounded-lg bg-zinc-900 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-5 bg-zinc-900 rounded w-40" />
+                <div className="h-3 bg-zinc-900 rounded w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </main>
   )
 
@@ -151,36 +169,34 @@ export default function Dashboard() {
 
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-12">
-          <h1 className="text-5xl font-black uppercase tracking-tight leading-none">
+          <h1 className="text-5xl font-display uppercase tracking-tight leading-none">
             Your<br /><span className="text-red-500">Dashboard</span>
           </h1>
         </div>
 
-        {/* Pending join requests */}
+        {/* Band invitations for you */}
         {pendingRequests.length > 0 && (
           <div className="mb-8">
             <p className="text-xs uppercase tracking-widest text-red-500 mb-3">
-              ⚡ Pending Requests ({pendingRequests.length})
+              ⚡ Band Invitations ({pendingRequests.length})
             </p>
             <div className="flex flex-col gap-3">
               {pendingRequests.map(req => (
                 <div key={req.id} className="border border-red-900/40 rounded-xl p-4 flex items-center gap-4">
                   <div className="flex-1">
                     <p className="font-bold text-sm">
-                      <span className="text-white">{req.profiles?.username}</span>
-                      <span className="text-zinc-500"> wants to join </span>
+                      <span className="text-zinc-500">You’ve been invited to join </span>
                       <span className="text-white">{req.bands?.name}</span>
                     </p>
-                    {req.name && <p className="text-xs text-zinc-600 mt-0.5">As: {req.name}</p>}
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleApprove(req.id)}
                       className="bg-green-700 hover:bg-green-600 text-white text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg transition-colors">
-                      Approve
+                      Accept
                     </button>
                     <button onClick={() => handleReject(req.id)}
                       className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg transition-colors">
-                      Reject
+                      Decline
                     </button>
                   </div>
                 </div>
@@ -216,7 +232,7 @@ export default function Dashboard() {
                     const bandReleases = releases.filter(r => r.band_id === m.band_id)
                     return (
                       <Link key={m.band_id} href={`/dashboard/manage/${m.band_id}`}
-                        className="group border border-zinc-800 hover:border-zinc-600 rounded-xl p-6 flex items-center gap-6 transition-all hover:bg-zinc-950">
+                        className="group border border-zinc-800 hover:border-zinc-700 rounded-xl p-6 flex items-center gap-6 transition-all hover:bg-zinc-950">
                         <div className="w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                           {band.logo_url
                             ? <img src={band.logo_url} alt={band.name} className="w-full h-full object-cover" />
@@ -268,7 +284,7 @@ export default function Dashboard() {
                     const band = m.bands
                     return (
                       <Link key={m.band_id} href={`/bands/${band.slug}`}
-                        className="group border border-zinc-800 hover:border-zinc-600 rounded-xl p-6 flex items-center gap-6 transition-all hover:bg-zinc-950">
+                        className="group border border-zinc-800 hover:border-zinc-700 rounded-xl p-6 flex items-center gap-6 transition-all hover:bg-zinc-950">
                         <div className="w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                           {band.logo_url
                             ? <img src={band.logo_url} alt={band.name} className="w-full h-full object-cover" />
@@ -312,13 +328,13 @@ export default function Dashboard() {
                   <p className="text-xs text-zinc-600 mt-1">Start a new band profile</p>
                 </Link>
                 <Link href="/explore"
-                  className="border border-zinc-800 hover:border-zinc-600 rounded-xl p-5 transition-all hover:bg-zinc-950 group">
+                  className="border border-zinc-800 hover:border-zinc-700 rounded-xl p-5 transition-all hover:bg-zinc-950 group">
                   <p className="text-2xl mb-3">🔍</p>
                   <p className="font-bold uppercase tracking-wide text-sm group-hover:text-white transition-colors">Browse Bands</p>
                   <p className="text-xs text-zinc-600 mt-1">Discover metal bands</p>
                 </Link>
                 <Link href="/dashboard/profile"
-                  className="border border-zinc-800 hover:border-zinc-600 rounded-xl p-5 transition-all hover:bg-zinc-950 group">
+                  className="border border-zinc-800 hover:border-zinc-700 rounded-xl p-5 transition-all hover:bg-zinc-950 group">
                   <p className="text-2xl mb-3">👤</p>
                   <p className="font-bold uppercase tracking-wide text-sm group-hover:text-white transition-colors">Profile Settings</p>
                   <p className="text-xs text-zinc-600 mt-1">Update your name, username, password</p>
@@ -335,7 +351,7 @@ export default function Dashboard() {
                     const band = memberships.find(m => m.band_id === release.band_id)?.bands
                     return (
                       <div key={release.id} className="border border-zinc-800 rounded-xl px-5 py-4 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                        <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                           {release.cover_url
                             ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
                             : <span className="text-lg">🎵</span>
@@ -369,7 +385,7 @@ export default function Dashboard() {
                 const displayName = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username
                 return (
                   <Link key={f.following_id} href={`/members/${p.username}`}
-                    className="flex items-center gap-2 border border-zinc-800 hover:border-zinc-600 rounded-lg px-3 py-2 transition-colors group">
+                    className="flex items-center gap-2 border border-zinc-800 hover:border-zinc-700 rounded-lg px-3 py-2 transition-colors group">
                     <span className="text-sm font-bold group-hover:text-red-500 transition-colors">{displayName}</span>
                     <span className="text-xs text-zinc-600">@{p.username}</span>
                   </Link>

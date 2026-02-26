@@ -60,6 +60,12 @@ type Show = {
   ticket_url: string | null
 }
 
+type BandPost = {
+  id: string
+  content: string
+  created_at: string
+}
+
 type Influence = { id: number; name: string }
 type Genre = { id: number; name: string }
 
@@ -116,9 +122,19 @@ export default function ManageBand() {
   const [newShowTicketUrl, setNewShowTicketUrl] = useState('')
   const [savingShow, setSavingShow] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [posts, setPosts] = useState<BandPost[]>([])
+  const [newPostContent, setNewPostContent] = useState('')
+  const [savingPost, setSavingPost] = useState(false)
+  const [postDeleteConfirm, setPostDeleteConfirm] = useState<string | null>(null)
   const [savingMembers, setSavingMembers] = useState(false)
   const [membersSuccess, setMembersSuccess] = useState(false)
   const [membersError, setMembersError] = useState<string | null>(null)
+  const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [memberSearchTerm, setMemberSearchTerm] = useState('')
+  const [memberSearchResults, setMemberSearchResults] = useState<any[]>([])
+  const [memberSearchLoading, setMemberSearchLoading] = useState(false)
+  const [memberSearchError, setMemberSearchError] = useState<string | null>(null)
+  const [memberInviteSuccess, setMemberInviteSuccess] = useState<string | null>(null)
   const [picSuccess, setPicSuccess] = useState(false)
   const [editingInfo, setEditingInfo] = useState(false)
   const [editCountry, setEditCountry] = useState('')
@@ -232,6 +248,13 @@ export default function ManageBand() {
         .order('date', { ascending: true })
       if (showData) setShows(showData)
 
+      const { data: postData } = await supabase
+        .from('band_posts')
+        .select('id, content, created_at')
+        .eq('band_id', bandId)
+        .order('created_at', { ascending: false })
+      if (postData) setPosts(postData)
+
       setLoading(false)
     }
     load()
@@ -339,17 +362,99 @@ export default function ManageBand() {
     }))
   }
 
+  const handleSearchMembers = async () => {
+    if (!band) return
+    const term = memberSearchTerm.trim()
+    setMemberInviteSuccess(null)
+    if (term.length < 2) {
+      setMemberSearchError('Type at least 2 characters to search.')
+      setMemberSearchResults([])
+      return
+    }
+    setMemberSearchLoading(true)
+    setMemberSearchError(null)
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, username, first_name, last_name, avatar_url')
+      .ilike('username', `%${term}%`)
+      .limit(10)
+    if (error) {
+      setMemberSearchError(error.message)
+      setMemberSearchResults([])
+    } else {
+      setMemberSearchResults(data || [])
+    }
+    setMemberSearchLoading(false)
+  }
+
+  const handleInviteExistingMember = async (profileId: string) => {
+    if (!band) return
+    setMemberSearchError(null)
+    setMemberInviteSuccess(null)
+
+    // Prevent inviting someone who already has any membership/invite for this band
+    const { data: existing } = await supabase
+      .from('band_members')
+      .select('id, status')
+      .eq('band_id', band.id)
+      .eq('profile_id', profileId)
+      .maybeSingle()
+
+    if (existing) {
+      setMemberSearchError('This user is already a member or has a pending invite for this band.')
+      return
+    }
+
+    const { error } = await supabase.from('band_members').insert({
+      band_id: band.id,
+      profile_id: profileId,
+      name: null,
+      instrument: null,
+      join_year: null,
+      country: null,
+      role: 'member',
+      status: 'invited',
+      display_order: 999,
+    })
+
+    if (error) {
+      setMemberSearchError(error.message)
+      return
+    }
+
+    try {
+      await supabase.from('notifications').insert({
+        user_id: profileId,
+        title: `Invitation to join ${band.name}`,
+        body: 'Open your dashboard to accept or decline the invitation.',
+        href: '/dashboard',
+      })
+    } catch (_) {}
+
+    setMemberInviteSuccess('Invitation sent. They can accept from their dashboard.')
+    setMemberSearchResults(prev => prev.filter(p => p.id !== profileId))
+  }
+
   const handleSaveMembers = async () => {
     if (!band) return
     setSavingMembers(true)
     setMembersError(null)
 
-    // Only manually-added (no profile_id), non-leader rows with name + instrument
-    const membersToSave = members.filter(
-      m => m.role !== 'leader' && !m.profile_id && m.name.trim() && m.instruments.length > 0
+    // Ensure the chosen primary instrument is first in the instruments array before persisting.
+    const normalizedMembers = members.map(m => {
+      if (!m.primary_instrument || !m.instruments.includes(m.primary_instrument)) return m
+      const rest = m.instruments.filter(inst => inst !== m.primary_instrument)
+      return { ...m, instruments: [m.primary_instrument, ...rest] }
+    })
+    // Keep state in sync with what we are about to persist
+    setMembers(normalizedMembers)
+
+    // Only manually-added (no profile_id) rows with name + instrument
+    const membersToSave = normalizedMembers.filter(
+      m => !m.profile_id && m.name.trim() && m.instruments.length > 0
     )
 
-    // Only delete manually-added rows (profile_id IS NULL) — leave linked members intact
+    // Only delete manually-added rows (profile_id IS NULL) — leave linked members (including leader) intact
     const { error: deleteError } = await supabase
       .from('band_members')
       .delete()
@@ -381,6 +486,25 @@ export default function ManageBand() {
 
       if (insertError) {
         setMembersError(insertError.message)
+        setSavingMembers(false)
+        return
+      }
+    }
+
+    // Update editable fields for account-linked members (join_year, country, instruments)
+    // Includes the leader row if it's linked to a profile.
+    const linkedMembers = normalizedMembers.filter(m => !!m.profile_id && !!m.id)
+    for (const lm of linkedMembers) {
+      const { error: updateError } = await supabase
+        .from('band_members')
+        .update({
+          instrument: lm.instruments.join(', ') || null,
+          join_year: lm.join_year ? parseInt(lm.join_year) : null,
+          country: lm.country || null,
+        })
+        .eq('id', lm.id)
+      if (updateError) {
+        setMembersError(updateError.message)
         setSavingMembers(false)
         return
       }
@@ -514,6 +638,40 @@ export default function ManageBand() {
     setShowDeleteConfirm(null)
   }
 
+  const handleCreatePost = async () => {
+    if (!band || !newPostContent.trim()) return
+    setSavingPost(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingPost(false); return }
+    const { data: newPost } = await supabase
+      .from('band_posts')
+      .insert({ band_id: band.id, author_id: user.id, content: newPostContent.trim() })
+      .select('id, content, created_at')
+      .single()
+    if (newPost) {
+      setPosts(prev => [newPost, ...prev])
+      setNewPostContent('')
+      const { data: followers } = await supabase.from('follows').select('user_id').eq('band_id', band.id)
+      if (followers && followers.length > 0) {
+        await supabase.from('notifications').insert(
+          followers.map((f: any) => ({
+            user_id: f.user_id,
+            title: `${band.name} posted an update`,
+            body: newPostContent.trim().slice(0, 120),
+            href: `/bands/${band.slug}`,
+          }))
+        )
+      }
+    }
+    setSavingPost(false)
+  }
+
+  const handleDeletePost = async (postId: string) => {
+    await supabase.from('band_posts').delete().eq('id', postId)
+    setPosts(prev => prev.filter(p => p.id !== postId))
+    setPostDeleteConfirm(null)
+  }
+
   const handleRemoveLinkedMember = async (memberId: string) => {
     await supabase.from('band_members').delete().eq('id', memberId)
     setMembers(prev => prev.filter(m => m.id !== memberId))
@@ -545,11 +703,15 @@ export default function ManageBand() {
               : <span className="text-3xl">🤘</span>}
           </div>
           <div className="flex-1">
-            <h1 className="text-4xl font-black uppercase tracking-tight">{band.name}</h1>
+            <h1 className="text-4xl font-display uppercase tracking-tight">{band.name}</h1>
             <div className="flex items-center gap-3 mt-1.5">
               <Link href={`/bands/${band.slug}`}
                 className="text-xs text-zinc-500 hover:text-red-400 transition-colors uppercase tracking-widest">
                 View public page →
+              </Link>
+              <Link href={`/dashboard/manage/${bandId}/analytics`}
+                className="text-xs text-zinc-500 hover:text-red-400 transition-colors uppercase tracking-widest">
+                Analytics →
               </Link>
               <button
                 onClick={handleTogglePublish}
@@ -806,6 +968,21 @@ export default function ManageBand() {
                       </button>
                     )}
                   </div>
+                  {/* Duplicate warning: manual entry whose name matches a linked member */}
+                  {!member.profile_id && member.role !== 'leader' && (() => {
+                    const dup = members.find(m => !!m.profile_id && m.name.toLowerCase() === member.name.toLowerCase())
+                    return dup ? (
+                      <div className="flex items-center justify-between gap-3 bg-amber-950/40 border border-amber-900/50 rounded-lg px-4 py-2.5">
+                        <p className="text-xs text-amber-400">
+                          Duplicate of linked account <strong>{dup.name}</strong>. Remove this manual entry.
+                        </p>
+                        <button onClick={() => removeMember(index)}
+                          className="text-xs text-amber-400 hover:text-amber-300 font-bold uppercase tracking-widest shrink-0 transition-colors">
+                          Remove
+                        </button>
+                      </div>
+                    ) : null
+                  })()}
                   <div className="grid grid-cols-3 gap-2">
                     <input type="text" value={member.name}
                       onChange={e => updateMember(index, 'name', e.target.value)}
@@ -861,10 +1038,82 @@ export default function ManageBand() {
                 </div>
               ))}
             </div>
-            <button onClick={addMember}
+            <button
+              onClick={() => {
+                setAddMemberOpen(v => !v)
+                setMemberSearchError(null)
+                setMemberInviteSuccess(null)
+              }}
               className="w-full border border-dashed border-zinc-700 hover:border-red-500 text-zinc-500 hover:text-white py-2 rounded-lg text-xs transition-colors mt-4">
-              + Add member
+              {addMemberOpen ? 'Close member browser' : '+ Add member from Metalist'}
             </button>
+
+            {addMemberOpen && (
+              <div className="mt-4 border border-zinc-800 rounded-xl p-4 flex flex-col gap-3">
+                <p className="text-xs uppercase tracking-widest text-zinc-600">
+                  Invite an existing Metalist member to this band
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={memberSearchTerm}
+                    onChange={e => { setMemberSearchTerm(e.target.value); setMemberSearchError(null); setMemberInviteSuccess(null) }}
+                    placeholder="Search by username..."
+                    className="flex-1 min-w-[160px] bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSearchMembers}
+                    disabled={memberSearchLoading}
+                    className="px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-widest border border-zinc-700 text-zinc-300 hover:border-red-500 hover:text-white disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {memberSearchLoading ? 'Searching...' : 'Search'}
+                  </button>
+                </div>
+                {memberSearchError && (
+                  <p className="text-xs text-red-400">{memberSearchError}</p>
+                )}
+                {memberInviteSuccess && (
+                  <p className="text-xs text-green-400">{memberInviteSuccess}</p>
+                )}
+                {memberSearchResults.length > 0 && (
+                  <div className="mt-2 flex flex-col gap-2 max-h-56 overflow-y-auto">
+                    {memberSearchResults.map(profile => {
+                      const display =
+                        [profile.first_name, profile.last_name].filter(Boolean).join(' ') ||
+                        profile.username
+                      return (
+                        <div
+                          key={profile.id}
+                          className="flex items-center gap-3 border border-zinc-800 rounded-lg px-3 py-2"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-zinc-900 overflow-hidden shrink-0 flex items-center justify-center text-[11px] font-bold">
+                            {profile.avatar_url
+                              ? <img src={profile.avatar_url} alt={display} className="w-full h-full object-cover" />
+                              : display[0]?.toUpperCase() || '?'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-white truncate">{display}</p>
+                            <p className="text-[11px] text-zinc-500 truncate">@{profile.username}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleInviteExistingMember(profile.id)}
+                            className="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest border border-zinc-700 text-zinc-300 hover:border-red-500 hover:text-white transition-colors shrink-0"
+                          >
+                            Invite
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {memberSearchResults.length === 0 && !memberSearchLoading && !memberSearchError && memberSearchTerm.trim().length >= 2 && (
+                  <p className="text-xs text-zinc-600">No members found.</p>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center gap-4 mt-4">
               <button onClick={handleSaveMembers} disabled={savingMembers}
                 className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-700 text-white font-bold uppercase tracking-widest px-6 py-2 rounded-lg text-xs transition-colors">
@@ -954,6 +1203,57 @@ export default function ManageBand() {
             </div>
           </div>
 
+          {/* Band Updates / Posts */}
+          <div className="border border-zinc-800 rounded-xl p-6">
+            <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-5">Band Updates</h2>
+            <div className="flex flex-col gap-3 mb-6">
+              <textarea
+                value={newPostContent}
+                onChange={e => setNewPostContent(e.target.value.slice(0, 500))}
+                placeholder="Share a news update, announcement, or message for your followers..."
+                rows={3}
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-colors text-sm resize-none"
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleCreatePost}
+                  disabled={savingPost || !newPostContent.trim()}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-700 text-white font-bold uppercase tracking-widest px-6 py-2 rounded-lg text-xs transition-colors">
+                  {savingPost ? 'Posting...' : 'Post Update'}
+                </button>
+                <span className="text-xs text-zinc-700">{newPostContent.length}/500</span>
+              </div>
+            </div>
+            {posts.length === 0 ? (
+              <p className="text-xs text-zinc-700 uppercase tracking-widest">No updates posted yet.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {posts.map(post => (
+                  <div key={post.id} className="border border-zinc-800 rounded-xl p-4">
+                    <p className="text-sm text-zinc-300 whitespace-pre-wrap">{post.content}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-xs text-zinc-700">
+                        {new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                      {postDeleteConfirm === post.id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-500">Sure?</span>
+                          <button onClick={() => handleDeletePost(post.id)} className="text-xs text-red-500 font-bold hover:text-red-400 transition-colors">Delete</button>
+                          <button onClick={() => setPostDeleteConfirm(null)} className="text-xs text-zinc-600 hover:text-white transition-colors">Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setPostDeleteConfirm(post.id)}
+                          className="text-xs text-zinc-700 hover:text-red-400 transition-colors uppercase tracking-widest">
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Releases */}
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -976,7 +1276,7 @@ export default function ManageBand() {
               <div className="flex flex-col gap-3">
                 {releases.map(release => (
                   <div key={release.id} className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {release.cover_url
                         ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
                         : <span className="text-xl">🎵</span>}

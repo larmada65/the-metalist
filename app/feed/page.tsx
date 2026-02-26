@@ -7,7 +7,7 @@ import GlobalNav from '../../components/GlobalNav'
 
 type FeedItem = {
   id: string
-  type: 'release' | 'show' | 'review'
+  type: 'release' | 'show' | 'review' | 'post'
   created_at: string
   // band context
   bandName: string
@@ -32,12 +32,14 @@ type FeedItem = {
   reviewerUsername?: string
   reviewReleaseTitle?: string
   reviewCoverUrl?: string | null
+  // post
+  postContent?: string
   // context hint
   reason: string
   reasonHref: string
 }
 
-type FilterType = 'all' | 'release' | 'show' | 'review'
+type FilterType = 'all' | 'release' | 'show' | 'review' | 'post'
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -60,6 +62,7 @@ export default function FeedPage() {
   const [items, setItems] = useState<FeedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterType>('all')
+  const [lastVisit, setLastVisit] = useState<string | null>(null)
   const [followedBandCount, setFollowedBandCount] = useState(0)
   const [followedUserCount, setFollowedUserCount] = useState(0)
   const [currentUser, setCurrentUser] = useState<string | null>(null)
@@ -68,6 +71,13 @@ export default function FeedPage() {
 
   useEffect(() => {
     const load = async () => {
+      // Track last visit for "New" badges
+      if (typeof window !== 'undefined') {
+        const stored = window.localStorage.getItem('metalist:lastFeedVisit')
+        if (stored) setLastVisit(stored)
+        window.localStorage.setItem('metalist:lastFeedVisit', new Date().toISOString())
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setCurrentUser(user.id)
@@ -151,6 +161,30 @@ export default function FeedPage() {
             reasonHref: `/bands/${band.slug}`,
           })
         })
+
+        // Posts from followed bands
+        const { data: posts } = await supabase
+          .from('band_posts')
+          .select('id, content, created_at, band_id')
+          .in('band_id', followedBandIds)
+          .order('created_at', { ascending: false })
+          .limit(20)
+
+        posts?.forEach((p: any) => {
+          const band = bandMeta[p.band_id]
+          if (!band) return
+          feed.push({
+            id: `post-${p.id}`,
+            type: 'post',
+            created_at: p.created_at,
+            bandName: band.name,
+            bandSlug: band.slug,
+            bandLogo: band.logo,
+            postContent: p.content,
+            reason: `You follow ${band.name}`,
+            reasonHref: `/bands/${band.slug}`,
+          })
+        })
       }
 
       // Reviews from followed users
@@ -204,6 +238,7 @@ export default function FeedPage() {
     release: items.filter(i => i.type === 'release').length,
     show: items.filter(i => i.type === 'show').length,
     review: items.filter(i => i.type === 'review').length,
+    post: items.filter(i => i.type === 'post').length,
   }
 
   const pillClass = (active: boolean) =>
@@ -223,7 +258,7 @@ export default function FeedPage() {
 
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-5xl font-black uppercase tracking-tight mb-2">My Feed</h1>
+          <h1 className="text-5xl font-display uppercase tracking-tight mb-2">My Feed</h1>
           <p className="text-zinc-600 text-sm">
             New releases, shows, and reviews from bands and people you follow.
           </p>
@@ -248,6 +283,11 @@ export default function FeedPage() {
             {counts.review > 0 && (
               <button onClick={() => setFilter('review')} className={pillClass(filter === 'review')}>
                 ✍️ Reviews ({counts.review})
+              </button>
+            )}
+            {counts.post > 0 && (
+              <button onClick={() => setFilter('post')} className={pillClass(filter === 'post')}>
+                📣 Updates ({counts.post})
               </button>
             )}
           </div>
@@ -306,7 +346,7 @@ export default function FeedPage() {
         {!loading && filtered.length > 0 && (
           <div className="flex flex-col gap-3">
             {filtered.map(item => (
-              <FeedCard key={item.id} item={item} />
+              <FeedCard key={item.id} item={item} lastVisit={lastVisit} />
             ))}
           </div>
         )}
@@ -322,7 +362,15 @@ export default function FeedPage() {
   )
 }
 
-function FeedCard({ item }: { item: FeedItem }) {
+function isNewItem(item: FeedItem, lastVisit: string | null): boolean {
+  if (!lastVisit) return false
+  const created = new Date(item.created_at).getTime()
+  const last = new Date(lastVisit).getTime()
+  return created > last
+}
+
+function FeedCard({ item, lastVisit }: { item: FeedItem; lastVisit: string | null }) {
+  const isNew = isNewItem(item, lastVisit)
   if (item.type === 'release') {
     return (
       <Link href={`/bands/${item.bandSlug}`}
@@ -338,6 +386,11 @@ function FeedCard({ item }: { item: FeedItem }) {
               New Release
             </span>
             {timeAgo(item.created_at)}
+            {isNew && (
+              <span className="ml-2 text-[10px] uppercase tracking-widest text-red-400">
+                New
+              </span>
+            )}
           </p>
           <p className="font-black uppercase tracking-wide text-sm group-hover:text-red-500 transition-colors">
             {item.releaseTitle}
@@ -346,7 +399,7 @@ function FeedCard({ item }: { item: FeedItem }) {
             {item.releaseType} · {item.bandName}
           </p>
           <p className="text-xs text-zinc-700 mt-2">
-            <Link href={item.reasonHref} className="hover:text-zinc-500 transition-colors">{item.reason}</Link>
+            <span className="hover:text-zinc-500 transition-colors">{item.reason}</span>
           </p>
         </div>
       </Link>
@@ -376,6 +429,11 @@ function FeedCard({ item }: { item: FeedItem }) {
             <span className="text-amber-400 font-bold uppercase tracking-widest text-xs border border-amber-900/40 px-1.5 py-0.5 rounded mr-2">
               Show
             </span>
+            {isNew && (
+              <span className="ml-1 text-[10px] uppercase tracking-widest text-red-400">
+                New
+              </span>
+            )}
           </p>
           <Link href={`/bands/${item.bandSlug}`}
             className="font-black uppercase tracking-wide text-sm hover:text-red-500 transition-colors">
@@ -400,6 +458,41 @@ function FeedCard({ item }: { item: FeedItem }) {
     )
   }
 
+  if (item.type === 'post') {
+    return (
+      <Link href={`/bands/${item.bandSlug}`}
+        className="border border-zinc-800 rounded-xl p-4 flex gap-4 hover:border-zinc-700 transition-colors group">
+        <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+          {item.bandLogo
+            ? <img src={item.bandLogo} alt={item.bandName} className="w-full h-full object-cover" />
+            : <span className="text-xl opacity-20">🤘</span>}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-zinc-600 mb-1">
+            <span className="text-orange-400 font-bold uppercase tracking-widest text-xs border border-orange-900/40 px-1.5 py-0.5 rounded mr-2">
+              Update
+            </span>
+            {timeAgo(item.created_at)}
+            {isNew && (
+              <span className="ml-2 text-[10px] uppercase tracking-widest text-red-400">
+                New
+              </span>
+            )}
+          </p>
+          <p className="font-black uppercase tracking-wide text-sm group-hover:text-red-500 transition-colors">
+            {item.bandName}
+          </p>
+          <p className="text-sm text-zinc-400 mt-1 line-clamp-2 leading-relaxed whitespace-pre-wrap">
+            {item.postContent}
+          </p>
+          <p className="text-xs text-zinc-700 mt-2">
+            <span className="hover:text-zinc-500 transition-colors">{item.reason}</span>
+          </p>
+        </div>
+      </Link>
+    )
+  }
+
   // review
   return (
     <Link href={`/reviews/${item.reviewId}`}
@@ -415,6 +508,11 @@ function FeedCard({ item }: { item: FeedItem }) {
             Review
           </span>
           {timeAgo(item.created_at)}
+          {isNew && (
+            <span className="ml-2 text-[10px] uppercase tracking-widest text-red-400">
+              New
+            </span>
+          )}
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-black uppercase tracking-wide text-sm group-hover:text-red-500 transition-colors">
@@ -437,7 +535,7 @@ function FeedCard({ item }: { item: FeedItem }) {
           {item.reviewContent}
         </p>
         <p className="text-xs text-zinc-700 mt-2">
-          <Link href={item.reasonHref} className="hover:text-zinc-500 transition-colors">{item.reason}</Link>
+          <span className="hover:text-zinc-500 transition-colors">{item.reason}</span>
         </p>
       </div>
     </Link>

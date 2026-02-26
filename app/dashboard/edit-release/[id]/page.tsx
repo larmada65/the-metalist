@@ -190,7 +190,7 @@ export default function EditRelease() {
       <GlobalNav backHref="/dashboard/manage" backLabel="Back to manage" />
 
       <div className="max-w-2xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-black uppercase tracking-tight mb-2">Edit Release</h1>
+        <h1 className="text-4xl font-display uppercase tracking-tight mb-2">Edit Release</h1>
         <p className="text-zinc-500 mb-10">Update your release details.</p>
 
         {error && (

@@ -73,7 +73,7 @@ export default function ReviewsPage() {
 
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-5xl font-black uppercase tracking-tight mb-2">Reviews</h1>
+          <h1 className="text-5xl font-display uppercase tracking-tight mb-2">Reviews</h1>
           <p className="text-zinc-600 text-sm">
             Long-form reviews written by the community. One per release, per member.
           </p>
@@ -83,7 +83,7 @@ export default function ReviewsPage() {
         {!loading && reviews.length > 0 && (
           <div className="mb-10 border-b border-zinc-800 pb-8 flex flex-col gap-5">
             <div>
-              <p className="text-3xl font-black">{reviews.length}</p>
+              <p className="text-3xl font-black tabular">{reviews.length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">
                 Review{reviews.length !== 1 ? 's' : ''} published
               </p>
@@ -126,7 +126,7 @@ export default function ReviewsPage() {
           <div className="border border-zinc-800 rounded-xl p-20 text-center">
             <p className="text-5xl mb-4">✍️</p>
             <p className="text-zinc-600 uppercase tracking-widest text-sm">
-              No reviews yet.
+              The critics are silent. Write the first review.
             </p>
             <p className="text-zinc-700 text-xs mt-4 max-w-xs mx-auto">
               Open any release on a band page and be the first to write one.
@@ -143,7 +143,7 @@ export default function ReviewsPage() {
                   <div className="flex gap-4">
                     {/* Cover */}
                     <Link href={`/reviews/${review.id}`}
-                      className="w-14 h-14 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                      className="w-14 h-14 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {release?.cover_url
                         ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
                         : <span className="text-xl opacity-20">🎵</span>}

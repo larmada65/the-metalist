@@ -42,6 +42,14 @@ type Review = {
   profiles: { username: string }
 }
 
+type RelatedRelease = {
+  id: string
+  title: string
+  release_type: string
+  release_year: number | null
+  cover_url: string | null
+}
+
 function getEmbedUrl(url: string): { type: 'youtube' | 'soundcloud' | 'unknown'; url: string } {
   if (url.includes('youtube.com/embed/')) return { type: 'youtube', url }
   if (url.includes('youtube.com/watch')) {
@@ -54,6 +62,21 @@ function getEmbedUrl(url: string): { type: 'youtube' | 'soundcloud' | 'unknown';
   }
   if (url.includes('soundcloud.com')) return { type: 'soundcloud', url }
   return { type: 'unknown', url }
+}
+
+function VUMeter({ value }: { value: number }) {
+  const pct = (value / 20) * 100
+  const colorClass = value >= 15
+    ? 'from-green-600 to-green-400'
+    : value >= 10 ? 'from-yellow-600 to-yellow-400' : 'from-red-700 to-red-500'
+  return (
+    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+      <div
+        className={`h-full rounded-full bg-gradient-to-r ${colorClass} transition-all duration-700`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  )
 }
 
 function ratingColor(r: number) {
@@ -84,6 +107,7 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [activeTrack, setActiveTrack] = useState<string | null>(null)
+  const [relatedReleases, setRelatedReleases] = useState<RelatedRelease[]>([])
 
   // Rating input
   const [ratingValue, setRatingValue] = useState('')
@@ -135,6 +159,15 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
         }
       }
       if (reviewData) setReviews(reviewData as any)
+
+      const { data: relatedData } = await supabase
+        .from('releases')
+        .select('id, title, release_type, release_year, cover_url')
+        .eq('band_id', releaseData.band_id)
+        .neq('id', releaseId)
+        .order('release_year', { ascending: false })
+        .limit(5)
+      if (relatedData) setRelatedReleases(relatedData)
 
       setLoading(false)
     }
@@ -226,8 +259,38 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
   }
 
   if (loading) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <p className="text-zinc-600 animate-pulse">Loading...</p>
+    <main className="min-h-screen bg-black text-white">
+      <GlobalNav backHref="/explore" backLabel="Back" currentUser={null} />
+      <div className="max-w-4xl mx-auto px-6 py-10 animate-pulse">
+        <div className="flex flex-col md:flex-row gap-8 mb-12">
+          <div className="md:w-52 md:shrink-0">
+            <div className="w-48 h-48 md:w-full md:aspect-square rounded-xl bg-zinc-900 mx-auto md:mx-0" />
+            <div className="mt-5 space-y-2">
+              <div className="h-8 bg-zinc-900 rounded w-24" />
+              <div className="h-1.5 bg-zinc-900 rounded-full" />
+              <div className="h-3 bg-zinc-900 rounded w-16" />
+            </div>
+          </div>
+          <div className="flex-1 space-y-4 pt-1">
+            <div className="h-3 bg-zinc-900 rounded w-28" />
+            <div className="h-10 bg-zinc-900 rounded w-64" />
+            <div className="flex gap-2">
+              <div className="h-5 bg-zinc-900 rounded w-16" />
+              <div className="h-5 bg-zinc-900 rounded w-10" />
+              <div className="h-5 bg-zinc-900 rounded w-14" />
+            </div>
+            <div className="h-10 bg-zinc-900 rounded w-48 mt-4" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+          <div className="md:col-span-2 space-y-3">
+            {[0,1,2,3,4].map(i => <div key={i} className="h-12 bg-zinc-900 rounded-xl" />)}
+          </div>
+          <div className="space-y-3">
+            <div className="h-20 bg-zinc-900 rounded-xl" />
+          </div>
+        </div>
+      </div>
     </main>
   )
 
@@ -244,23 +307,43 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
     <main className="min-h-screen bg-black text-white">
       <GlobalNav backHref={`/bands/${band.slug}`} backLabel={band.name} currentUser={currentUser} />
 
-      <div className="max-w-4xl mx-auto px-6 py-12">
+      <div className="max-w-4xl mx-auto px-6 py-10">
 
-        {/* Header */}
-        <div className="flex items-start gap-8 mb-12">
-          {/* Cover */}
-          <div className="w-40 h-40 md:w-56 md:h-56 rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
-            {release.cover_url
-              ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-5xl">🎵</div>
-            }
+        {/* Two-column header: sticky cover + info */}
+        <div className="flex flex-col md:flex-row gap-8 mb-12">
+
+          {/* Sticky left: cover + aggregate rating */}
+          <div className="md:sticky md:top-4 md:self-start md:w-52 md:shrink-0">
+            <div className="w-48 h-48 md:w-full md:aspect-square bg-zinc-900 border border-zinc-800 overflow-hidden mx-auto md:mx-0">
+              {release.cover_url
+                ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center text-5xl">🎵</div>
+              }
+            </div>
+
+            {/* Aggregate rating + VU meter */}
+            <div className="mt-5 flex flex-col gap-2">
+              {avgRating !== null && ratingCount > 0 ? (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-3xl font-black tabular ${avgRating >= 15 ? 'text-green-400' : avgRating >= 10 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {avgRating.toFixed(1)}
+                    </span>
+                    <span className="text-zinc-600 text-sm">/20</span>
+                  </div>
+                  <VUMeter value={avgRating} />
+                  <p className="text-xs text-zinc-600">{ratingCount} rating{ratingCount !== 1 ? 's' : ''}</p>
+                </>
+              ) : (
+                <p className="text-xs text-zinc-700 uppercase tracking-widest">No ratings yet</p>
+              )}
+            </div>
           </div>
 
-          {/* Info */}
+          {/* Right: title, meta, rate */}
           <div className="flex-1 min-w-0">
-            {/* Band link */}
             <Link href={`/bands/${band.slug}`}
-              className="flex items-center gap-2 mb-3 group w-fit">
+              className="flex items-center gap-2 mb-4 group w-fit">
               {band.logo_url && (
                 <div className="w-6 h-6 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
                   <img src={band.logo_url} alt={band.name} className="w-full h-full object-cover" />
@@ -271,32 +354,16 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
               </span>
             </Link>
 
-            <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight leading-none mb-3">
+            <h1 className="text-4xl md:text-5xl font-display uppercase tracking-tight leading-none mb-4">
               {release.title}
             </h1>
 
-            <div className="flex flex-wrap gap-3 text-xs text-zinc-500 mb-5 uppercase tracking-widest">
+            <div className="flex flex-wrap gap-3 text-xs text-zinc-500 mb-8 uppercase tracking-widest">
               <span className="border border-zinc-700 px-2 py-0.5 rounded">{release.release_type}</span>
               {release.release_year && <span>{release.release_year}</span>}
               <span>{tracks.length} track{tracks.length !== 1 ? 's' : ''}</span>
             </div>
 
-            {/* Rating */}
-            <div className="mb-5">
-              {avgRating !== null && ratingCount > 0 ? (
-                <div className="flex items-baseline gap-2">
-                  <span className={`text-3xl font-black ${avgRating >= 15 ? 'text-green-400' : avgRating >= 10 ? 'text-yellow-400' : 'text-red-400'}`}>
-                    {avgRating.toFixed(1)}
-                  </span>
-                  <span className="text-zinc-600">/20</span>
-                  <span className="text-zinc-600 text-sm">({ratingCount} rating{ratingCount !== 1 ? 's' : ''})</span>
-                </div>
-              ) : (
-                <p className="text-zinc-600 text-sm">No ratings yet</p>
-              )}
-            </div>
-
-            {/* Rate */}
             {currentUser ? (
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-zinc-500 uppercase tracking-widest">
@@ -326,7 +393,7 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
 
-          {/* Left: description + tracklist */}
+          {/* Left: description + tracklist + reviews */}
           <div className="md:col-span-2 flex flex-col gap-8">
 
             {release.description && (
@@ -336,7 +403,6 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
               </section>
             )}
 
-            {/* Tracklist */}
             {tracks.length > 0 && (
               <section>
                 <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-3">
@@ -391,7 +457,6 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
               </section>
             )}
 
-            {/* Reviews */}
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs uppercase tracking-widest text-zinc-500">
@@ -490,12 +555,12 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
             </section>
           </div>
 
-          {/* Right: band card */}
+          {/* Right: band card + related releases */}
           <div className="flex flex-col gap-6">
             <section>
               <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-3">Band</h2>
               <Link href={`/bands/${band.slug}`}
-                className="flex items-center gap-4 border border-zinc-800 hover:border-zinc-600 rounded-xl p-4 transition-colors group">
+                className="flex items-center gap-4 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 transition-colors group">
                 <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                   {band.logo_url
                     ? <img src={band.logo_url} alt={band.name} className="w-full h-full object-cover" />
@@ -510,6 +575,33 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
                 </div>
               </Link>
             </section>
+
+            {relatedReleases.length > 0 && (
+              <section>
+                <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-3">More from {band.name}</h2>
+                <div className="flex flex-col gap-1">
+                  {relatedReleases.map(rel => (
+                    <Link key={rel.id} href={`/releases/${rel.id}`}
+                      className="flex items-center gap-3 group hover:bg-zinc-900/60 rounded-lg -mx-2 px-2 py-2 transition-colors">
+                      <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                        {rel.cover_url
+                          ? <img src={rel.cover_url} alt={rel.title} className="w-full h-full object-cover" />
+                          : <span className="text-base">🎵</span>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold group-hover:text-red-400 transition-colors truncate">
+                          {rel.title}
+                        </p>
+                        <p className="text-xs text-zinc-600 mt-0.5">
+                          {rel.release_type}{rel.release_year ? ` · ${rel.release_year}` : ''}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
 
         </div>

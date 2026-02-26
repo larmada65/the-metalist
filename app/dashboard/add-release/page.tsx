@@ -204,7 +204,7 @@ export default function AddRelease() {
       <GlobalNav backHref={bandId ? `/dashboard/manage/${bandId}` : '/dashboard'} backLabel="Back to manage" />
 
       <div className="max-w-2xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-black uppercase tracking-tight mb-2">Add Release</h1>
+        <h1 className="text-4xl font-display uppercase tracking-tight mb-2">Add Release</h1>
         <p className="text-zinc-500 mb-10">Share your music with metalheads.</p>
 
         {error && (

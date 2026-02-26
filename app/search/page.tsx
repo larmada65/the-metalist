@@ -163,7 +163,7 @@ function SearchContent() {
       <GlobalNav backHref="/explore" backLabel="Back to bands" />
 
       <div className="max-w-3xl mx-auto px-6 py-16">
-        <h1 className="text-5xl font-black uppercase tracking-tight mb-2">
+        <h1 className="text-5xl font-display uppercase tracking-tight mb-2">
           Search
         </h1>
         <p className="text-zinc-500 mb-10">Find bands, releases, and musicians.</p>
@@ -203,7 +203,7 @@ function SearchContent() {
                 <div className="flex flex-col gap-3">
                   {bands.map(band => (
                     <Link key={band.id} href={`/bands/${band.slug}`}
-                      className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-600 transition-colors group">
+                      className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-700 transition-colors group">
                       <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                         {band.logo_url
                           ? <img src={band.logo_url} alt={band.name} className="w-full h-full object-cover" />
@@ -237,8 +237,8 @@ function SearchContent() {
                 <div className="flex flex-col gap-3">
                   {releases.map(release => (
                     <Link key={release.id} href={`/releases/${release.id}`}
-                      className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-600 transition-colors group">
-                      <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                      className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-700 transition-colors group">
+                      <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                         {release.cover_url
                           ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
                           : <span className="text-xl">🎵</span>
@@ -277,7 +277,7 @@ function SearchContent() {
                     ].filter(Boolean)
                     return (
                       <Link key={profile.id} href={`/members/${profile.username}`}
-                        className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-600 transition-colors group">
+                        className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-700 transition-colors group">
                         <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                           {profile.avatar_url
                             ? <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />

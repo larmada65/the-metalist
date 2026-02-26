@@ -102,7 +102,7 @@ export default function FindMusicians() {
 
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-5xl font-black uppercase tracking-tight mb-2">Find Talent</h1>
+          <h1 className="text-5xl font-display uppercase tracking-tight mb-2">Find Talent</h1>
           <p className="text-zinc-600 text-sm max-w-xl">
             Musicians, producers, and sound engineers from the metalhead community. View a profile to connect.
           </p>
@@ -112,15 +112,15 @@ export default function FindMusicians() {
         {!loading && profiles.length > 0 && (
           <div className="flex gap-10 mb-12 border-b border-zinc-800 pb-10">
             <div>
-              <p className="text-3xl font-black">{profiles.filter(isMusician).length}</p>
+              <p className="text-3xl font-black tabular">{profiles.filter(isMusician).length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Musicians</p>
             </div>
             <div>
-              <p className="text-3xl font-black">{profiles.filter(p => p.is_producer).length}</p>
+              <p className="text-3xl font-black tabular">{profiles.filter(p => p.is_producer).length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Producers</p>
             </div>
             <div>
-              <p className="text-3xl font-black">{profiles.filter(p => p.is_sound_engineer).length}</p>
+              <p className="text-3xl font-black tabular">{profiles.filter(p => p.is_sound_engineer).length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Engineers</p>
             </div>
           </div>
@@ -196,7 +196,7 @@ export default function FindMusicians() {
 
               return (
                 <Link key={profile.id} href={`/members/${profile.username}`}
-                  className="border border-zinc-800 rounded-xl p-5 hover:border-zinc-600 transition-all group flex flex-col gap-3">
+                  className="border border-zinc-800 rounded-xl p-5 hover:border-zinc-700 transition-all group flex flex-col gap-3">
 
                   {/* Avatar + name */}
                   <div className="flex items-start gap-4">

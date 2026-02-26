@@ -102,7 +102,7 @@ export default function ShowsPage() {
 
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-5xl font-black uppercase tracking-tight mb-2">Shows</h1>
+          <h1 className="text-5xl font-display uppercase tracking-tight mb-2">Shows</h1>
           <p className="text-zinc-600 text-sm">
             Upcoming gigs and tour dates from bands on the platform.
           </p>
@@ -112,12 +112,12 @@ export default function ShowsPage() {
         {!loading && (
           <div className="flex gap-8 mb-10 border-b border-zinc-800 pb-8">
             <div>
-              <p className="text-3xl font-black">{shows.length}</p>
+              <p className="text-3xl font-black tabular">{shows.length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Upcoming shows</p>
             </div>
             {countries.length > 0 && (
               <div>
-                <p className="text-3xl font-black">{countries.length}</p>
+                <p className="text-3xl font-black tabular">{countries.length}</p>
                 <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Countries</p>
               </div>
             )}
@@ -189,7 +189,7 @@ export default function ShowsPage() {
             <p className="text-5xl mb-4">🎸</p>
             <p className="text-zinc-600 uppercase tracking-widest text-sm">
               {shows.length === 0
-                ? 'No shows announced yet.'
+                ? 'No shows on the horizon. The tour bus is parked.'
                 : 'No shows in this country.'}
             </p>
             {shows.length === 0 && (

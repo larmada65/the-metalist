@@ -85,7 +85,7 @@ export default function NotificationsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-10">
           <div>
-            <h1 className="text-5xl font-black uppercase tracking-tight leading-none mb-1">
+            <h1 className="text-5xl font-display uppercase tracking-tight leading-none mb-1">
               Notifications
             </h1>
             {!loading && unreadCount > 0 && (

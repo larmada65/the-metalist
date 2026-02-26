@@ -38,6 +38,19 @@ type Membership = {
   }
 }
 
+type UserReview = {
+  id: string
+  title: string
+  content: string
+  rating: number | null
+  created_at: string
+  release_id: string
+  release_title: string
+  cover_url: string | null
+  band_name: string
+  band_slug: string
+}
+
 const INSTRUMENT_EMOJI: Record<string, string> = {
   'Vocals': '🎤', 'Guitar': '🎸', 'Bass': '🎸', 'Drums': '🥁',
   'Keyboards': '🎹', 'Violin': '🎻', 'Cello': '🎻', 'Trumpet': '🎺',
@@ -65,6 +78,14 @@ export default function MemberProfileClient({ username }: { username: string }) 
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [followLoading, setFollowLoading] = useState(false)
+  const [reviewCount, setReviewCount] = useState(0)
+  const [bandFollowCount, setBandFollowCount] = useState(0)
+  const [leaderBands, setLeaderBands] = useState<{ id: string; name: string }[]>([])
+  const [inviteBandId, setInviteBandId] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [userReviews, setUserReviews] = useState<UserReview[]>([])
   const supabase = createClient()
 
   useEffect(() => {
@@ -85,6 +106,9 @@ export default function MemberProfileClient({ username }: { username: string }) 
         { data: membershipData },
         { count: followers },
         { count: following },
+        { count: reviews },
+        { count: bandFollows },
+        { data: reviewsList },
       ] = await Promise.all([
         supabase
           .from('band_members')
@@ -100,11 +124,44 @@ export default function MemberProfileClient({ username }: { username: string }) 
           .from('user_follows')
           .select('*', { count: 'exact', head: true })
           .eq('follower_id', profileData.id),
+        supabase
+          .from('reviews')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', profileData.id),
+        supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', profileData.id),
+        supabase
+          .from('reviews')
+          .select('id, title, content, rating, created_at, releases(id, title, cover_url, bands(name, slug))')
+          .eq('user_id', profileData.id)
+          .order('created_at', { ascending: false })
+          .limit(20),
       ])
 
       if (membershipData) setMemberships(membershipData as any)
       setFollowerCount(followers || 0)
       setFollowingCount(following || 0)
+      setReviewCount(reviews || 0)
+      setBandFollowCount(bandFollows || 0)
+
+      if (reviewsList) {
+        setUserReviews(
+          (reviewsList as any[]).map(r => ({
+            id: r.id,
+            title: r.title,
+            content: r.content,
+            rating: r.rating,
+            created_at: r.created_at,
+            release_id: r.releases?.id,
+            release_title: r.releases?.title || '',
+            cover_url: r.releases?.cover_url || null,
+            band_name: r.releases?.bands?.name || '',
+            band_slug: r.releases?.bands?.slug || '',
+          }))
+        )
+      }
 
       // Check if current user follows this profile
       if (user && user.id !== profileData.id) {
@@ -115,6 +172,22 @@ export default function MemberProfileClient({ username }: { username: string }) 
           .eq('following_id', profileData.id)
           .maybeSingle()
         setIsFollowing(!!followData)
+
+        // Load bands where current user is leader (for invite-to-band action)
+        const { data: leaderData } = await supabase
+          .from('band_members')
+          .select('band_id, bands(name)')
+          .eq('profile_id', user.id)
+          .eq('role', 'leader')
+          .eq('status', 'approved')
+        if (leaderData) {
+          setLeaderBands(
+            (leaderData as any[]).map(m => ({
+              id: m.band_id,
+              name: m.bands?.name || 'Untitled band',
+            }))
+          )
+        }
       }
 
       setLoading(false)
@@ -158,6 +231,59 @@ export default function MemberProfileClient({ username }: { username: string }) 
     }
 
     setFollowLoading(false)
+  }
+
+  const handleInviteToBand = async () => {
+    if (!currentUser || !profile || !inviteBandId || inviteLoading) return
+    setInviteLoading(true)
+    setInviteError(null)
+    setInviteSuccess(false)
+
+    // Avoid duplicate membership / invite
+    const { data: existing } = await supabase
+      .from('band_members')
+      .select('id, status')
+      .eq('band_id', inviteBandId)
+      .eq('profile_id', profile.id)
+      .maybeSingle()
+
+    if (existing) {
+      setInviteError('This member already has a membership or pending invite for that band.')
+      setInviteLoading(false)
+      return
+    }
+
+    const bandMeta = leaderBands.find(b => b.id === inviteBandId)
+
+    const { error } = await supabase.from('band_members').insert({
+      band_id: inviteBandId,
+      profile_id: profile.id,
+      name: null,
+      instrument: null,
+      join_year: null,
+      country: null,
+      role: 'member',
+      status: 'invited',
+      display_order: 999,
+    })
+
+    if (error) {
+      setInviteError(error.message)
+      setInviteLoading(false)
+      return
+    }
+
+    try {
+      await supabase.from('notifications').insert({
+        user_id: profile.id,
+        title: `Invitation to join ${bandMeta?.name ?? 'a band'}`,
+        body: 'Open your dashboard to accept or decline the invitation.',
+        href: '/dashboard',
+      })
+    } catch (_) {}
+
+    setInviteSuccess(true)
+    setInviteLoading(false)
   }
 
   if (loading) return (
@@ -210,6 +336,11 @@ export default function MemberProfileClient({ username }: { username: string }) 
             </h1>
             <div className="flex items-center gap-2 flex-wrap mt-1">
               <p className="text-zinc-500 text-sm">@{p.username}</p>
+              {p.username === 'larmada' && (
+                <span className="text-xs px-2 py-0.5 rounded border border-amber-600/60 bg-amber-950/40 text-amber-400 uppercase tracking-widest font-bold">
+                  Founder
+                </span>
+              )}
               {p.is_producer && (
                 <span className="text-xs px-2 py-0.5 rounded border border-red-900/50 bg-red-950/30 text-red-400 uppercase tracking-widest font-medium">
                   Producer
@@ -246,16 +377,51 @@ export default function MemberProfileClient({ username }: { username: string }) 
           </div>
 
           {!isOwnProfile && currentUser && (
-            <button
-              onClick={handleFollow}
-              disabled={followLoading}
-              className={`ml-auto px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${
-                isFollowing
-                  ? 'bg-zinc-900 border-zinc-600 text-zinc-300 hover:border-red-500 hover:text-red-400'
-                  : 'bg-red-600 border-red-600 text-white hover:bg-red-700'
-              }`}>
-              {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
-            </button>
+            <div className="ml-auto flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                <Link href={`/messages/${p.username}`}
+                  className="px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-white transition-colors">
+                  Message
+                </Link>
+                <button
+                  onClick={handleFollow}
+                  disabled={followLoading}
+                  className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${
+                    isFollowing
+                      ? 'bg-zinc-900 border-zinc-600 text-zinc-300 hover:border-red-500 hover:text-red-400'
+                      : 'bg-red-600 border-red-600 text-white hover:bg-red-700'
+                  }`}>
+                  {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+                </button>
+              </div>
+              {leaderBands.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={inviteBandId}
+                    onChange={e => { setInviteBandId(e.target.value); setInviteError(null); setInviteSuccess(false) }}
+                    className="bg-zinc-900 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-red-500 transition-colors"
+                  >
+                    <option value="">Invite to band…</option>
+                    {leaderBands.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleInviteToBand}
+                    disabled={!inviteBandId || inviteLoading}
+                    className="px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest border border-zinc-700 text-zinc-300 hover:border-red-500 hover:text-white disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {inviteLoading ? 'Sending...' : `Request to join band`}
+                  </button>
+                </div>
+              )}
+              {inviteSuccess && (
+                <p className="text-[11px] text-green-400">Invitation sent. They can accept from their dashboard.</p>
+              )}
+              {inviteError && (
+                <p className="text-[11px] text-red-400">{inviteError}</p>
+              )}
+            </div>
           )}
 
           {!isOwnProfile && !currentUser && (
@@ -275,6 +441,72 @@ export default function MemberProfileClient({ username }: { username: string }) 
             </Link>
           )}
         </div>
+
+        {/* ── Badges ─────────────────────────────────────────────── */}
+        {(() => {
+          const badges: { emoji: string; label: string; title: string }[] = []
+          if (p.username === 'larmada') badges.push({ emoji: '👑', label: 'Founder', title: 'Founded The Metalist' })
+          const joinDate = new Date(p.created_at)
+          const monthsOn = (Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+          if (monthsOn >= 12) badges.push({ emoji: '🎖️', label: 'Veteran', title: 'Member for over a year' })
+          if (reviewCount >= 1) badges.push({ emoji: '✍️', label: 'Critic', title: 'Wrote a review' })
+          if (reviewCount >= 5) badges.push({ emoji: '🔥', label: 'Power Critic', title: '5+ reviews written' })
+          if (reviewCount >= 20) badges.push({ emoji: '🏆', label: 'Legend', title: '20+ reviews written' })
+          if (bandFollowCount >= 5) badges.push({ emoji: '🤘', label: 'Fan', title: 'Follows 5+ bands' })
+          if (bandFollowCount >= 15) badges.push({ emoji: '🌑', label: 'Devotee', title: 'Follows 15+ bands' })
+          if (memberships.some(m => m.role === 'leader')) badges.push({ emoji: '🎸', label: 'Bandleader', title: 'Leads a band' })
+          else if (memberships.length > 0) badges.push({ emoji: '🥁', label: 'Musician', title: 'Member of a band' })
+          if (p.is_producer) badges.push({ emoji: '🎚️', label: 'Producer', title: 'Music producer' })
+          if (p.is_sound_engineer) badges.push({ emoji: '🔊', label: 'Engineer', title: 'Sound engineer' })
+          if (badges.length === 0) return null
+
+          // Progress towards next review/band-follow milestone
+          const nextReviewMilestone =
+            reviewCount < 1 ? { target: 1, label: 'Critic' }
+            : reviewCount < 5 ? { target: 5, label: 'Power Critic' }
+            : reviewCount < 20 ? { target: 20, label: 'Legend' }
+            : null
+          const remainingReviews = nextReviewMilestone ? nextReviewMilestone.target - reviewCount : 0
+
+          const nextBandMilestone =
+            bandFollowCount < 5 ? { target: 5, label: 'Fan' }
+            : bandFollowCount < 15 ? { target: 15, label: 'Devotee' }
+            : null
+          const remainingBands = nextBandMilestone ? nextBandMilestone.target - bandFollowCount : 0
+
+          return (
+            <div className="mb-8">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {badges.map(b => (
+                  <div key={b.label} title={b.title}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-800 bg-zinc-900 text-xs text-zinc-400 cursor-default">
+                    <span>{b.emoji}</span>
+                    <span className="uppercase tracking-widest font-medium">{b.label}</span>
+                  </div>
+                ))}
+              </div>
+              {(nextReviewMilestone || nextBandMilestone) && (
+                <p className="text-[11px] text-zinc-600">
+                  {nextReviewMilestone && remainingReviews > 0 && (
+                    <span>
+                      Write {remainingReviews} more review{remainingReviews !== 1 ? 's' : ''} to reach{' '}
+                      <span className="text-zinc-400">{nextReviewMilestone.label}</span>.
+                    </span>
+                  )}
+                  {nextReviewMilestone && nextBandMilestone && remainingReviews > 0 && remainingBands > 0 && (
+                    <span>{' '}</span>
+                  )}
+                  {nextBandMilestone && remainingBands > 0 && (
+                    <span>
+                      Follow {remainingBands} more band{remainingBands !== 1 ? 's' : ''} to unlock{' '}
+                      <span className="text-zinc-400">{nextBandMilestone.label}</span>.
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          )
+        })()}
 
         {/* ── Bio ────────────────────────────────────────────────── */}
         {p.bio && (
@@ -375,7 +607,7 @@ export default function MemberProfileClient({ username }: { username: string }) 
                 const band = m.bands as any
                 return (
                   <Link key={m.id} href={`/bands/${band.slug}`}
-                    className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-600 transition-all group">
+                    className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-700 transition-all group">
                     {/* Logo */}
                     <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {band.logo_url
@@ -416,6 +648,50 @@ export default function MemberProfileClient({ username }: { username: string }) 
             </div>
           )}
         </div>
+
+        {/* ── Reviews ────────────────────────────────────────────── */}
+        {userReviews.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-5">
+              Reviews ({userReviews.length})
+            </h2>
+            <div className="flex flex-col gap-3">
+              {userReviews.map(r => (
+                <Link key={r.id} href={`/reviews/${r.id}`}
+                  className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-700 transition-colors group">
+                  <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                    {r.cover_url
+                      ? <img src={r.cover_url} alt={r.release_title} className="w-full h-full object-cover" />
+                      : <span className="text-xl opacity-20">🎵</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-zinc-500 uppercase tracking-widest mb-0.5 truncate">
+                      {r.band_name}
+                    </p>
+                    <p className="text-xs text-zinc-700 truncate mb-1">
+                      {r.release_title}
+                    </p>
+                    <p className="text-sm font-black uppercase tracking-wide text-white group-hover:text-red-500 transition-colors truncate">
+                      {r.title}
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed line-clamp-2">
+                      {r.content}
+                    </p>
+                  </div>
+                  {r.rating !== null && (
+                    <span className={`text-xs font-black px-1.5 py-0.5 rounded border shrink-0 ${
+                      r.rating >= 15 ? 'text-green-400 bg-green-950/40 border-green-900/50'
+                      : r.rating >= 10 ? 'text-yellow-400 bg-yellow-950/40 border-yellow-900/50'
+                      : 'text-red-400 bg-red-950/40 border-red-900/50'
+                    }`}>
+                      {r.rating.toFixed(1)}/20
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </main>

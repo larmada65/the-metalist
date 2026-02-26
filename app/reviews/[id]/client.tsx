@@ -78,7 +78,7 @@ export default function ReviewPageClient({ id }: { id: string }) {
 
         {/* Release header */}
         <div className="flex gap-5 mb-10">
-          <div className="w-24 h-24 rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+          <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
             {release?.cover_url
               ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
               : <span className="text-3xl opacity-20">🎵</span>}
@@ -105,7 +105,7 @@ export default function ReviewPageClient({ id }: { id: string }) {
           {/* Title + rating */}
           <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
             <div>
-              <h1 className="text-2xl font-black uppercase tracking-tight leading-tight">
+              <h1 className="text-2xl font-display uppercase tracking-tight leading-tight">
                 {review.title}
               </h1>
               <div className="flex items-center gap-3 mt-2 flex-wrap">

@@ -31,7 +31,7 @@ export default function ForgotPassword() {
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
-      <Link href="/" className="text-red-500 font-black tracking-widest uppercase text-2xl mb-12">
+      <Link href="/" className="text-red-500 font-display tracking-widest uppercase text-2xl mb-12">
         The Metalist
       </Link>
 
@@ -39,7 +39,7 @@ export default function ForgotPassword() {
         {sent ? (
           <div className="text-center">
             <div className="text-4xl mb-4">📬</div>
-            <h1 className="text-2xl font-black uppercase tracking-wide mb-3">Check your inbox</h1>
+            <h1 className="text-2xl font-display uppercase tracking-wide mb-3">Check your inbox</h1>
             <p className="text-zinc-400 text-sm leading-relaxed">
               We sent a password reset link to <span className="text-white">{email}</span>. Click the link in the email to set a new password.
             </p>
@@ -49,7 +49,7 @@ export default function ForgotPassword() {
           </div>
         ) : (
           <>
-            <h1 className="text-2xl font-black uppercase tracking-wide mb-2">Forgot password?</h1>
+            <h1 className="text-2xl font-display uppercase tracking-wide mb-2">Forgot password?</h1>
             <p className="text-zinc-500 text-sm mb-8">Enter your email and we'll send you a reset link.</p>
 
             {error && (

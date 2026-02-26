@@ -166,7 +166,7 @@ export default function ActivityPage() {
 
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-5xl font-black uppercase tracking-tight mb-2">Activity</h1>
+          <h1 className="text-5xl font-display uppercase tracking-tight mb-2">Activity</h1>
           <p className="text-zinc-600 text-sm">
             What's been happening on the platform — new bands, releases, shows, and members.
           </p>

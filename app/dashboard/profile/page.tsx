@@ -197,7 +197,7 @@ export default function ProfileSettings() {
       <GlobalNav backHref="/dashboard" backLabel="Back to dashboard" currentUser={userId} />
 
       <div className="max-w-xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-black uppercase tracking-tight mb-12">
+        <h1 className="text-4xl font-display uppercase tracking-tight mb-12">
           Profile <span className="text-red-500">Settings</span>
         </h1>
 

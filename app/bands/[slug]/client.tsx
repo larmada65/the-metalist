@@ -1,8 +1,9 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '../../../lib/supabase'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { useToast } from '../../../components/Toast'
 const GlobalNav = dynamic(() => import('../../../components/GlobalNav').then(mod => mod.default), { ssr: false })
 
 type Band = {
@@ -84,6 +85,23 @@ type SimilarBand = {
   logo_url: string | null
   country: string | null
   genre_ids: number[] | null
+}
+
+type BandPost = {
+  id: string
+  content: string
+  created_at: string
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return `${Math.floor(days / 30)}mo ago`
 }
 
 function parseShowDate(dateStr: string): Date {
@@ -231,9 +249,12 @@ export default function BandPageClient({ slug }: { slug: string }) {
   const [expandedRelease, setExpandedRelease] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [followPulse, setFollowPulse] = useState(false)
   const supabase = createClient()
+  const toast = useToast()
   const [shows, setShows] = useState<Show[]>([])
   const [similarBands, setSimilarBands] = useState<SimilarBand[]>([])
+  const [posts, setPosts] = useState<BandPost[]>([])
   const [reviews, setReviews] = useState<Record<string, Review[]>>({})
   const [reviewTitle, setReviewTitle] = useState<Record<string, string>>({})
   const [reviewContent, setReviewContent] = useState<Record<string, string>>({})
@@ -241,13 +262,10 @@ export default function BandPageClient({ slug }: { slug: string }) {
   const [submittingReview, setSubmittingReview] = useState<string | null>(null)
   const [showReviewForm, setShowReviewForm] = useState<string | null>(null)
   const [reviewError, setReviewError] = useState<Record<string, string>>({})
-  // Join request
+  // Membership status (for showing badges / manage link)
   const [userMemberStatus, setUserMemberStatus] = useState<string | null>(null)
-  const [showJoinForm, setShowJoinForm] = useState(false)
-  const [joinName, setJoinName] = useState('')
-  const [joinInstruments, setJoinInstruments] = useState<string[]>([])
-  const [submittingJoin, setSubmittingJoin] = useState(false)
-  const [joinError, setJoinError] = useState<string | null>(null)
+  const [heroInView, setHeroInView] = useState(true)
+  const heroSentinelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -263,23 +281,35 @@ export default function BandPageClient({ slug }: { slug: string }) {
       const { data: releaseData } = await supabase
         .from('releases').select('*').eq('band_id', bandData.id).order('release_year', { ascending: false })
 
-      if (releaseData) {
-        const releasesWithData = await Promise.all(
-          releaseData.map(async (release) => {
-            const { data: tracks } = await supabase
-              .from('tracks').select('*').eq('release_id', release.id).order('track_number')
-            const { data: ratings } = await supabase
-              .from('ratings').select('score, user_id').eq('release_id', release.id)
-            const ratingCount = ratings?.length || 0
-            const avgRating = ratingCount > 0
-              ? ratings!.reduce((sum, r) => sum + r.score, 0) / ratingCount : null
-            const userRating = user
-              ? ratings?.find(r => r.user_id === user.id)?.score ?? null : null
-            return { ...release, tracks: tracks || [], avgRating, ratingCount, userRating }
-          })
-        )
+      if (releaseData && releaseData.length > 0) {
+        const releaseIds = releaseData.map(r => r.id)
+        const [{ data: allTracks }, { data: allRatings }] = await Promise.all([
+          supabase.from('tracks').select('*').in('release_id', releaseIds).order('track_number'),
+          supabase.from('ratings').select('score, user_id, release_id').in('release_id', releaseIds),
+        ])
+        const tracksByRelease: Record<string, Track[]> = {}
+        const ratingsByRelease: Record<string, { score: number; user_id: string }[]> = {}
+        allTracks?.forEach((t: any) => {
+          if (!tracksByRelease[t.release_id]) tracksByRelease[t.release_id] = []
+          tracksByRelease[t.release_id].push(t)
+        })
+        allRatings?.forEach((r: any) => {
+          if (!ratingsByRelease[r.release_id]) ratingsByRelease[r.release_id] = []
+          ratingsByRelease[r.release_id].push(r)
+        })
+        const releasesWithData = releaseData.map(release => {
+          const tracks = tracksByRelease[release.id] || []
+          const ratings = ratingsByRelease[release.id] || []
+          const ratingCount = ratings.length
+          const avgRating = ratingCount > 0
+            ? ratings.reduce((sum, r) => sum + r.score, 0) / ratingCount : null
+          const userRating = user
+            ? ratings.find(r => r.user_id === user.id)?.score ?? null : null
+          return { ...release, tracks, avgRating, ratingCount, userRating }
+        })
         setReleases(releasesWithData)
-        // Nothing auto-expanded — user opens releases manually
+      } else if (releaseData) {
+        setReleases([])
       }
 
       // Influences
@@ -325,6 +355,15 @@ export default function BandPageClient({ slug }: { slug: string }) {
         if (simData) setSimilarBands(simData)
       }
 
+      // Band posts / updates
+      const { data: postData } = await supabase
+        .from('band_posts')
+        .select('id, content, created_at')
+        .eq('band_id', bandData.id)
+        .order('created_at', { ascending: false })
+        .limit(5)
+      if (postData) setPosts(postData)
+
       // Follow count
       const { count } = await supabase
         .from('follows').select('*', { count: 'exact', head: true }).eq('band_id', bandData.id)
@@ -336,43 +375,55 @@ export default function BandPageClient({ slug }: { slug: string }) {
         setIsFollowing(!!followData)
 
         // Current user's membership status for this band
-        const [{ data: myRecord }, { data: myProfile }] = await Promise.all([
+        const [{ data: myRecord }] = await Promise.all([
           supabase.from('band_members')
             .select('status, role')
             .eq('band_id', bandData.id)
             .eq('profile_id', user.id)
             .maybeSingle(),
-          supabase.from('profiles')
-            .select('first_name, last_name')
-            .eq('id', user.id)
-            .single(),
         ])
         if (myRecord?.role === 'leader') setUserMemberStatus('leader')
         else if (myRecord) setUserMemberStatus(myRecord.status)
         else setUserMemberStatus('none')
-
-        if (myProfile) {
-          const full = [myProfile.first_name, myProfile.last_name].filter(Boolean).join(' ')
-          if (full) setJoinName(full)
-        }
       }
     }
     load()
   }, [slug])
 
+  useEffect(() => {
+    const el = heroSentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeroInView(entry.isIntersecting),
+      { rootMargin: '-1px 0px 0px 0px', threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [band])
+
   const handleFollow = async () => {
-    if (!currentUser || !band) return
-    setFollowLoading(true)
-    if (isFollowing) {
-      await supabase.from('follows').delete().eq('band_id', band.id).eq('user_id', currentUser)
-      setIsFollowing(false)
-      setFollowCount(prev => prev - 1)
-    } else {
-      await supabase.from('follows').insert({ band_id: band.id, user_id: currentUser })
-      setIsFollowing(true)
-      setFollowCount(prev => prev + 1)
+    if (!currentUser || !band || followLoading) return
+    const wasFollowing = isFollowing
+    // Optimistic update — instant feedback
+    setIsFollowing(!wasFollowing)
+    setFollowCount(prev => wasFollowing ? prev - 1 : prev + 1)
+    if (!wasFollowing) {
+      setFollowPulse(true)
+      setTimeout(() => setFollowPulse(false), 300)
     }
+    setFollowLoading(true)
+    const { error } = wasFollowing
+      ? await supabase.from('follows').delete().eq('band_id', band.id).eq('user_id', currentUser)
+      : await supabase.from('follows').insert({ band_id: band.id, user_id: currentUser })
     setFollowLoading(false)
+    if (error) {
+      // Revert on failure
+      setIsFollowing(wasFollowing)
+      setFollowCount(prev => wasFollowing ? prev + 1 : prev - 1)
+      toast.error('Something went wrong — try again')
+    } else {
+      toast.success(wasFollowing ? `Unfollowed ${band.name}` : `Following ${band.name} 🤘`)
+    }
   }
 
   const handleRated = (releaseId: string, score: number) => {
@@ -459,41 +510,6 @@ export default function BandPageClient({ slug }: { slug: string }) {
     }))
   }
 
-  const toggleJoinInstrument = (name: string) =>
-    setJoinInstruments(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name])
-
-  const handleJoinRequest = async () => {
-    if (!currentUser || !band || !joinName.trim() || joinInstruments.length === 0) return
-    setSubmittingJoin(true)
-    setJoinError(null)
-    const { error } = await supabase.from('band_members').insert({
-      band_id: band.id,
-      profile_id: currentUser,
-      name: joinName.trim(),
-      instrument: joinInstruments.join(', '),
-      role: 'member',
-      status: 'pending',
-      display_order: 999,
-    })
-    if (error) {
-      setJoinError('Could not send request. ' + error.message)
-      setSubmittingJoin(false)
-      return
-    }
-    // Notify the band leader
-    try {
-      await supabase.from('notifications').insert({
-        user_id: band.user_id,
-        title: `New join request for ${band.name}`,
-        body: `${joinName.trim()} wants to join as ${joinInstruments.join(', ')}.`,
-        href: `/dashboard/manage/${band.id}`,
-      })
-    } catch (_) {}
-    setUserMemberStatus('pending')
-    setShowJoinForm(false)
-    setSubmittingJoin(false)
-  }
-
   if (notFound) return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
       <p className="text-zinc-500 text-xl mb-4">Band not found.</p>
@@ -502,8 +518,38 @@ export default function BandPageClient({ slug }: { slug: string }) {
   )
 
   if (!band) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <p className="text-zinc-600 animate-pulse">Loading...</p>
+    <main className="min-h-screen bg-black text-white">
+      <GlobalNav backHref="/explore" backLabel="Back to bands" currentUser={null} />
+      <div className="border-b border-zinc-800 animate-pulse">
+        <div className="max-w-5xl mx-auto px-6 py-12">
+          <div className="flex flex-col md:flex-row items-start gap-6 md:gap-8">
+            <div className="w-24 h-24 md:w-36 md:h-36 rounded-xl bg-zinc-900 shrink-0" />
+            <div className="flex-1 space-y-3 pt-1">
+              <div className="flex gap-2">
+                <div className="h-5 bg-zinc-900 rounded w-20" />
+                <div className="h-5 bg-zinc-900 rounded w-16" />
+              </div>
+              <div className="h-10 bg-zinc-900 rounded w-56" />
+              <div className="h-4 bg-zinc-900 rounded w-36" />
+              <div className="flex gap-6 pt-2">
+                <div className="h-8 bg-zinc-900 rounded w-14" />
+                <div className="h-8 bg-zinc-900 rounded w-14" />
+                <div className="h-8 bg-zinc-900 rounded w-14" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <div className="h-10 bg-zinc-900 rounded w-28" />
+                <div className="h-10 bg-zinc-900 rounded w-36" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="max-w-5xl mx-auto px-6 py-12 animate-pulse">
+        <div className="h-3 bg-zinc-900 rounded w-24 mb-6" />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[0,1,2].map(i => <div key={i} className="aspect-square bg-zinc-900 rounded-lg" />)}
+        </div>
+      </div>
     </main>
   )
 
@@ -511,216 +557,190 @@ export default function BandPageClient({ slug }: { slug: string }) {
     <main className="min-h-screen bg-black text-white">
       <GlobalNav backHref="/explore" backLabel="Back to bands" currentUser={currentUser} />
 
-      {/* Hero */}
-      <div className="border-b border-zinc-800">
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <div className="flex items-start gap-8">
+      {/* Sticky band name bar — slides in when hero scrolls out */}
+      <div className={`fixed top-16 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800 transition-all duration-200 ${
+        heroInView ? 'opacity-0 pointer-events-none -translate-y-1' : 'opacity-100 pointer-events-auto translate-y-0'
+      }`}>
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-2.5 flex items-center gap-3">
+          {band.logo_url && (
+            <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
+              <img src={band.logo_url} alt={band.name} className="w-full h-full object-cover" />
+            </div>
+          )}
+          <span className="font-display uppercase tracking-tight text-xl leading-none truncate">{band.name}</span>
+          <div className="ml-auto shrink-0">
+            {currentUser ? (
+              <button onClick={handleFollow}
+                className={`px-4 py-1.5 rounded-lg font-bold uppercase tracking-widest text-xs transition-all ${
+                  isFollowing ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700' : 'bg-red-600 text-white hover:bg-red-700'
+                }`}>
+                {isFollowing ? '✓ Following' : '+ Follow'}
+              </button>
+            ) : (
+              <Link href="/login" className="px-4 py-1.5 rounded-lg font-bold uppercase tracking-widest text-xs bg-red-600 text-white hover:bg-red-700 transition-colors">
+                + Follow
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Immersive Hero */}
+      <div className="relative overflow-hidden" style={{ minHeight: band.band_pic_url ? '420px' : '220px' }}>
+        {band.band_pic_url ? (
+          <>
+            <img
+              src={band.band_pic_url}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover scale-105"
+              style={{ filter: 'blur(0.75px) brightness(0.7)' }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 to-black" />
+        )}
+
+        {/* Sentinel — triggers sticky bar when scrolled past */}
+        <div ref={heroSentinelRef} className="absolute bottom-0 left-0 right-0 h-px pointer-events-none" />
+
+        <div className="relative max-w-5xl mx-auto px-6 flex flex-col justify-end pb-10 pt-16"
+          style={{ minHeight: 'inherit' }}>
+          <div className="flex items-end gap-5 md:gap-7">
             {/* Logo */}
-            <div className="w-36 h-36 rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+            <div className="w-20 h-20 md:w-28 md:h-28 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden shrink-0 shadow-2xl shadow-black/80">
               {band.logo_url
                 ? <img src={band.logo_url} alt={band.name} className="w-full h-full object-cover" />
-                : <span className="text-5xl">🤘</span>
+                : <div className="w-full h-full flex items-center justify-center text-4xl">🤘</div>
               }
             </div>
 
-            {/* Info */}
-            <div className="flex-1">
+            {/* Name + genres + meta */}
+            <div className="flex-1 min-w-0">
               {genres.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
                   {genres.map(g => (
                     <Link key={g.id} href={`/explore?genre=${g.id}`}
-                      className="px-2 py-0.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-500 uppercase tracking-wider hover:border-red-500 hover:text-white transition-colors">
+                      className="px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-zinc-700/60 rounded text-xs text-zinc-400 uppercase tracking-wider hover:border-red-500 hover:text-white transition-colors">
                       {g.name}
                     </Link>
                   ))}
                 </div>
               )}
-              <h1 className="text-5xl font-black uppercase tracking-tight mb-3">{band.name}</h1>
-              <div className="flex flex-wrap gap-4 text-sm text-zinc-500 mb-5">
+              <h1 className="text-5xl sm:text-6xl md:text-7xl font-display uppercase tracking-tight leading-none mb-3">
+                {band.name}
+              </h1>
+              <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
                 {band.country && <span>{countryToFlag(band.country)} {band.country}</span>}
-                {band.year_formed && <span>📅 Est. {band.year_formed}</span>}
-              </div>
-
-              {/* Metrics */}
-              <div className="flex items-center gap-8 mb-5">
-                <div>
-                  <p className="text-2xl font-black text-white">{followCount}</p>
-                  <p className="text-xs text-zinc-600 uppercase tracking-widest">Followers</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-white">{releases.length}</p>
-                  <p className="text-xs text-zinc-600 uppercase tracking-widest">Releases</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-white">
-                    {releases.reduce((sum, r) => sum + r.tracks.length, 0)}
-                  </p>
-                  <p className="text-xs text-zinc-600 uppercase tracking-widest">Tracks</p>
-                </div>
-              </div>
-
-              {/* Follow + join + socials */}
-              <div className="flex items-center gap-3 flex-wrap">
-                {currentUser ? (
-                  <button onClick={handleFollow} disabled={followLoading}
-                    className={`px-6 py-2 rounded-lg font-bold uppercase tracking-widest text-sm transition-colors ${
-                      isFollowing
-                        ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700'
-                        : 'bg-red-600 text-white hover:bg-red-700'
-                    }`}>
-                    {followLoading ? '...' : isFollowing ? '✓ Following' : '+ Follow'}
-                  </button>
-                ) : (
-                  <Link href="/login" className="px-6 py-2 rounded-lg font-bold uppercase tracking-widest text-sm bg-red-600 text-white hover:bg-red-700 transition-colors">
-                    + Follow
-                  </Link>
-                )}
-
-                {/* Join request button / status badge */}
-                {currentUser && userMemberStatus === 'none' && (
-                  <button
-                    onClick={() => setShowJoinForm(v => !v)}
-                    className="px-6 py-2 rounded-lg font-bold uppercase tracking-widest text-sm border border-zinc-700 text-zinc-300 hover:border-red-500 hover:text-white transition-colors">
-                    {showJoinForm ? 'Cancel' : 'Request to Join'}
-                  </button>
-                )}
-                {currentUser && userMemberStatus === 'pending' && (
-                  <span className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-amber-800/60 text-amber-600">
-                    Request Pending
-                  </span>
-                )}
-                {currentUser && userMemberStatus === 'approved' && (
-                  <span className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-green-800/60 text-green-600">
-                    ✓ Member
-                  </span>
-                )}
-                {currentUser && userMemberStatus === 'leader' && (
-                  <Link href={`/dashboard/manage/${band.id}`}
-                    className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-red-500 hover:text-white transition-colors flex items-center gap-1.5">
-                    👑 Manage Band
-                  </Link>
-                )}
-                {currentUser && userMemberStatus === 'rejected' && (
-                  <span className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-800 text-zinc-600">
-                    Request Declined
-                  </span>
-                )}
-                {(band.instagram_url || band.facebook_url || band.youtube_url || band.bandcamp_url || band.soundcloud_url) && (
-                  <div className="flex items-center gap-2">
-                    {band.instagram_url && (
-                      <a href={band.instagram_url} target="_blank" rel="noopener noreferrer"
-                        title="Instagram"
-                        className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
-                        <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                        </svg>
-                      </a>
-                    )}
-                    {band.facebook_url && (
-                      <a href={band.facebook_url} target="_blank" rel="noopener noreferrer"
-                        title="Facebook"
-                        className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
-                        <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                        </svg>
-                      </a>
-                    )}
-                    {band.youtube_url && (
-                      <a href={band.youtube_url} target="_blank" rel="noopener noreferrer"
-                        title="YouTube"
-                        className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
-                        <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                        </svg>
-                      </a>
-                    )}
-                    {band.bandcamp_url && (
-                      <a href={band.bandcamp_url} target="_blank" rel="noopener noreferrer"
-                        title="Bandcamp"
-                        className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
-                        <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M0 18.75l7.437-13.5H24l-7.438 13.5z"/>
-                        </svg>
-                      </a>
-                    )}
-                    {band.soundcloud_url && (
-                      <a href={band.soundcloud_url} target="_blank" rel="noopener noreferrer"
-                        title="SoundCloud"
-                        className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
-                        <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M1.175 12.225c-.15 0-.271.119-.29.281l-.24 2.236.24 2.219c.019.163.14.281.29.281.149 0 .27-.118.289-.281l.272-2.219-.272-2.236c-.019-.162-.14-.281-.289-.281zm1.565-.899c-.169 0-.307.13-.325.298l-.24 3.135.24 3.06c.018.168.156.297.325.297.17 0 .307-.129.326-.297l.272-3.06-.272-3.135c-.019-.168-.156-.298-.326-.298zm1.565-.899c-.189 0-.344.146-.362.334l-.218 4.034.218 3.922c.018.188.173.334.362.334.19 0 .345-.146.363-.334l.247-3.922-.247-4.034c-.018-.188-.173-.334-.363-.334zm1.6.337c-.209 0-.381.163-.399.372l-.197 3.697.197 3.828c.018.209.19.372.399.372.21 0 .381-.163.4-.372l.222-3.828-.222-3.697c-.019-.209-.19-.372-.4-.372zm1.566-.225c-.229 0-.418.18-.436.409l-.176 3.922.176 3.75c.018.229.207.409.436.409.23 0 .419-.18.437-.409l.2-3.75-.2-3.922c-.018-.229-.207-.409-.437-.409zm9.6-3.407c-.337 0-.658.063-.956.177C15.847 4.01 14.076 2.25 11.869 2.25c-.553 0-1.09.106-1.58.3-.181.07-.229.14-.231.207v14.806c.002.071.055.131.126.143h10.723c.622 0 1.125-.497 1.125-1.11C22.032 9.963 18.513 7.357 15.071 7.132z"/>
-                        </svg>
-                      </a>
-                    )}
-                  </div>
-                )}
+                {band.year_formed && <span>Est. {band.year_formed}</span>}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Band pic */}
-            {band.band_pic_url && (
-              <div className="relative hidden md:block shrink-0 rounded-xl overflow-hidden"
-                style={{ width: '420px', height: '260px' }}>
-                <img src={band.band_pic_url} alt={`${band.name} promo`}
-                  className="w-full h-full object-cover" />
-                <div className="absolute inset-0"
-                  style={{ background: 'linear-gradient(to bottom, transparent 40%, black 100%)' }} />
+      {/* Metrics + actions */}
+      <div className="border-b border-zinc-800">
+        <div className="max-w-5xl mx-auto px-6 py-6">
+          {/* Metrics row */}
+          <div className="flex items-center gap-5 md:gap-8 mb-3 flex-wrap">
+            <div>
+              <p className="text-2xl font-black tabular text-white">{followCount}</p>
+              <p className="text-xs text-zinc-600 uppercase tracking-widest">Followers</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black tabular text-white">{releases.length}</p>
+              <p className="text-xs text-zinc-600 uppercase tracking-widest">Releases</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black tabular text-white">
+                {releases.reduce((sum, r) => sum + r.tracks.length, 0)}
+              </p>
+              <p className="text-xs text-zinc-600 uppercase tracking-widest">Tracks</p>
+            </div>
+          </div>
+
+          {/* Follow + status + socials */}
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
+            {currentUser ? (
+              <button onClick={handleFollow} disabled={followLoading}
+                className={`px-6 py-2 rounded-lg font-bold uppercase tracking-widest text-sm transition-all active:scale-95 ${followPulse ? 'animate-follow-pulse' : ''} ${
+                  isFollowing
+                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}>
+                {isFollowing ? '✓ Following' : 'Follow'}
+              </button>
+            ) : (
+              <Link href="/login" className="px-6 py-2 rounded-lg font-bold uppercase tracking-widest text-sm bg-red-600 text-white hover:bg-red-700 transition-colors">
+                + Follow
+              </Link>
+            )}
+
+            {currentUser && userMemberStatus === 'approved' && (
+              <span className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-green-800/60 text-green-600">
+                ✓ Member
+              </span>
+            )}
+            {currentUser && userMemberStatus === 'leader' && (
+              <Link href={`/dashboard/manage/${band.id}`}
+                className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-red-500 hover:text-white transition-colors flex items-center gap-1.5">
+                👑 Manage Band
+              </Link>
+            )}
+            {(band.instagram_url || band.facebook_url || band.youtube_url || band.bandcamp_url || band.soundcloud_url) && (
+              <div className="flex items-center gap-2">
+                {band.instagram_url && (
+                  <a href={band.instagram_url} target="_blank" rel="noopener noreferrer"
+                    title="Instagram"
+                    className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
+                    <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                  </a>
+                )}
+                {band.facebook_url && (
+                  <a href={band.facebook_url} target="_blank" rel="noopener noreferrer"
+                    title="Facebook"
+                    className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
+                    <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                  </a>
+                )}
+                {band.youtube_url && (
+                  <a href={band.youtube_url} target="_blank" rel="noopener noreferrer"
+                    title="YouTube"
+                    className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
+                    <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                  </a>
+                )}
+                {band.bandcamp_url && (
+                  <a href={band.bandcamp_url} target="_blank" rel="noopener noreferrer"
+                    title="Bandcamp"
+                    className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
+                    <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M0 18.75l7.437-13.5H24l-7.438 13.5z"/>
+                    </svg>
+                  </a>
+                )}
+                {band.soundcloud_url && (
+                  <a href={band.soundcloud_url} target="_blank" rel="noopener noreferrer"
+                    title="SoundCloud"
+                    className="w-9 h-9 rounded-lg border border-zinc-700 hover:border-red-500 flex items-center justify-center transition-colors group">
+                    <svg className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M1.175 12.225c-.15 0-.271.119-.29.281l-.24 2.236.24 2.219c.019.163.14.281.29.281.149 0 .27-.118.289-.281l.272-2.219-.272-2.236c-.019-.162-.14-.281-.289-.281zm1.565-.899c-.169 0-.307.13-.325.298l-.24 3.135.24 3.06c.018.168.156.297.325.297.17 0 .307-.129.326-.297l.272-3.06-.272-3.135c-.019-.168-.156-.298-.326-.298zm1.565-.899c-.189 0-.344.146-.362.334l-.218 4.034.218 3.922c.018.188.173.334.362.334.19 0 .345-.146.363-.334l.247-3.922-.247-4.034c-.018-.188-.173-.334-.363-.334zm1.6.337c-.209 0-.381.163-.399.372l-.197 3.697.197 3.828c.018.209.19.372.399.372.21 0 .381-.163.4-.372l.222-3.828-.222-3.697c-.019-.209-.19-.372-.4-.372zm1.566-.225c-.229 0-.418.18-.436.409l-.176 3.922.176 3.75c.018.229.207.409.436.409.23 0 .419-.18.437-.409l.2-3.75-.2-3.922c-.018-.229-.207-.409-.437-.409zm9.6-3.407c-.337 0-.658.063-.956.177C15.847 4.01 14.076 2.25 11.869 2.25c-.553 0-1.09.106-1.58.3-.181.07-.229.14-.231.207v14.806c.002.071.055.131.126.143h10.723c.622 0 1.125-.497 1.125-1.11C22.032 9.963 18.513 7.357 15.071 7.132z"/>
+                    </svg>
+                  </a>
+                )}
               </div>
             )}
           </div>
 
-          {/* Join request form — full width below hero row */}
-          {showJoinForm && currentUser && userMemberStatus === 'none' && (
-            <div className="mt-6 border border-zinc-800 rounded-xl p-6 flex flex-col gap-5">
-              <p className="text-xs uppercase tracking-widest text-zinc-500">Request to Join {band.name}</p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-zinc-600 mb-2 block">
-                    Your name in this band
-                  </label>
-                  <input
-                    type="text"
-                    value={joinName}
-                    onChange={e => setJoinName(e.target.value)}
-                    placeholder="Full name"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-red-500 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-zinc-600 mb-2 block">
-                    Your instrument(s)
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {INSTRUMENTS.map(inst => (
-                      <button
-                        key={inst.name}
-                        type="button"
-                        onClick={() => toggleJoinInstrument(inst.name)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                          joinInstruments.includes(inst.name)
-                            ? 'bg-red-600 text-white'
-                            : 'bg-zinc-900 border border-zinc-700 text-zinc-400 hover:border-zinc-500'
-                        }`}>
-                        <span>{inst.emoji}</span>
-                        <span>{inst.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 flex-wrap">
-                <button
-                  onClick={handleJoinRequest}
-                  disabled={submittingJoin || !joinName.trim() || joinInstruments.length === 0}
-                  className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-bold uppercase tracking-widest px-6 py-2.5 rounded-lg text-xs transition-colors">
-                  {submittingJoin ? 'Sending...' : 'Send Request'}
-                </button>
-                {joinError && <p className="text-red-400 text-xs">{joinError}</p>}
-              </div>
-            </div>
-          )}
+          {/* Join requests are now leader-initiated invites handled via member dashboards. */}
         </div>
       </div>
 
@@ -733,6 +753,20 @@ export default function BandPageClient({ slug }: { slug: string }) {
             <section>
               <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4">About</h2>
               <p className="text-zinc-300 leading-relaxed">{band.description}</p>
+            </section>
+          )}
+
+          {posts.length > 0 && (
+            <section>
+              <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4">Updates</h2>
+              <div className="flex flex-col gap-3">
+                {posts.map(post => (
+                  <div key={post.id} className="border border-zinc-800 rounded-xl p-4">
+                    <p className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">{post.content}</p>
+                    <p className="text-xs text-zinc-700 mt-2">{timeAgo(post.created_at)}</p>
+                  </div>
+                ))}
+              </div>
             </section>
           )}
 
@@ -758,7 +792,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
                         }
                       }}
                       className="w-full flex items-center gap-4 p-4 hover:bg-zinc-950 transition-colors text-left">
-                      <div className="w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
+                      <div className="w-16 h-16 rounded bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
                         {release.cover_url
                           ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
                           : <div className="w-full h-full flex items-center justify-center text-2xl">🎵</div>
@@ -770,11 +804,13 @@ export default function BandPageClient({ slug }: { slug: string }) {
                           className="font-black uppercase tracking-wide hover:text-red-400 transition-colors block">
                           {release.title}
                         </Link>
-                        <p className="text-xs text-zinc-500 mt-0.5">
-                          {release.release_type}
-                          {release.release_year ? ` · ${release.release_year}` : ''}
-                          {' · '}{release.tracks.length} track{release.tracks.length !== 1 ? 's' : ''}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-500 uppercase tracking-widest">
+                            {release.release_type}
+                          </span>
+                          {release.release_year && <span className="text-xs text-zinc-600">{release.release_year}</span>}
+                          <span className="text-xs text-zinc-600">{release.tracks.length} track{release.tracks.length !== 1 ? 's' : ''}</span>
+                        </div>
                         <div className="mt-1">
                           <RatingDisplay avg={release.avgRating} count={release.ratingCount} />
                         </div>

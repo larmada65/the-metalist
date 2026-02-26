@@ -29,11 +29,15 @@ interface GlobalNavProps {
   currentUser?: string | null
 }
 
+const BANDS_DROPDOWN = [
+  { href: '/explore',  label: 'All Bands',  desc: 'Browse & filter bands' },
+  { href: '/releases', label: 'Releases',   desc: 'Albums, EPs & singles' },
+  { href: '/rankings', label: 'Rankings',   desc: 'Top rated & most followed' },
+  { href: '/compare',  label: 'Compare',    desc: 'Compare two bands side by side' },
+  { href: '/shows',    label: 'Shows',      desc: 'Upcoming tour dates' },
+]
+
 const NAV_LINKS = [
-  { href: '/explore',  label: 'Bands' },
-  { href: '/releases', label: 'Releases' },
-  { href: '/rankings', label: 'Rankings' },
-  { href: '/shows',    label: 'Shows' },
   { href: '/activity', label: 'Activity' },
   { href: '/reviews',  label: 'Reviews' },
   { href: '/members',  label: 'Members' },
@@ -50,17 +54,20 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
   const [notifCount, setNotifCount] = useState(0)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifs, setNotifs] = useState<Notif[]>([])
+  const [unreadMessages, setUnreadMessages] = useState(0)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [bandsOpen, setBandsOpen] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
+  const bandsRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
 
   // Close menus on route change
-  useEffect(() => { setMobileOpen(false); setSearchOpen(false) }, [pathname])
+  useEffect(() => { setMobileOpen(false); setSearchOpen(false); setBandsOpen(false) }, [pathname])
 
   // Lock body scroll when mobile menu or search is open
   useEffect(() => {
@@ -86,10 +93,14 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
       .from('profiles').select('username').eq('id', userId).single()
     if (profile) setSelfUsername(profile.username)
     try {
-      const { count } = await supabase
-        .from('notifications').select('id', { count: 'exact', head: true })
-        .eq('user_id', userId).eq('read', false)
-      setNotifCount(count || 0)
+      const [{ count: notifs }, { count: msgs }] = await Promise.all([
+        supabase.from('notifications').select('id', { count: 'exact', head: true })
+          .eq('user_id', userId).eq('read', false),
+        supabase.from('messages').select('id', { count: 'exact', head: true })
+          .eq('recipient_id', userId).is('read_at', null),
+      ])
+      setNotifCount(notifs || 0)
+      setUnreadMessages(msgs || 0)
     } catch (_) {}
   }
 
@@ -109,6 +120,9 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setNotifOpen(false)
+      }
+      if (bandsRef.current && !bandsRef.current.contains(e.target as Node)) {
+        setBandsOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
@@ -208,7 +222,7 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
       <nav className="border-b border-zinc-800 px-4 md:px-6 py-3 flex items-center gap-3 md:gap-6 relative z-40 bg-black">
         {/* Logo + back */}
         <div className="flex flex-col shrink-0">
-          <Link href="/" className="text-xl font-black tracking-widest uppercase text-red-500 leading-tight">
+          <Link href="/" className="text-2xl font-display tracking-widest uppercase text-red-500 leading-tight">
             The Metalist
           </Link>
           {backHref && backLabel && (
@@ -220,6 +234,30 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
 
         {/* Centre nav links — desktop only */}
         <div className="hidden md:flex items-center gap-5 shrink-0">
+          {/* Bands dropdown */}
+          <div ref={bandsRef} className="relative">
+            <button
+              onClick={() => setBandsOpen(v => !v)}
+              className={`flex items-center gap-1 text-xs uppercase tracking-widest transition-colors ${bandsOpen ? 'text-white' : 'text-zinc-600 hover:text-white'}`}>
+              Bands
+              <svg className={`w-3 h-3 transition-transform ${bandsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {bandsOpen && (
+              <div className="absolute left-0 top-full mt-2 w-52 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl z-50">
+                {BANDS_DROPDOWN.map(item => (
+                  <Link key={item.href} href={item.href}
+                    className="flex flex-col px-4 py-3 hover:bg-zinc-900 transition-colors border-b border-zinc-800 last:border-0">
+                    <span className="text-xs font-bold uppercase tracking-widest text-white">{item.label}</span>
+                    <span className="text-xs text-zinc-600 mt-0.5">{item.desc}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Flat nav links */}
           {NAV_LINKS.map(l => (
             <Link key={l.href} href={l.href}
               className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest">
@@ -232,10 +270,6 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
         <div className="flex items-center gap-3 md:gap-4 ml-auto shrink-0">
           {resolvedUser ? (
             <>
-              <span className="text-zinc-400 text-sm hidden md:block">
-                Hey, <span className="text-white font-bold">{resolvedUsername}</span> 🤘
-              </span>
-
               {/* Notification bell */}
               <div ref={notifRef} className="relative">
                 <button onClick={handleBellClick}
@@ -284,6 +318,18 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
                   </div>
                 )}
               </div>
+
+              {/* Messages icon */}
+              <Link href="/messages" className="relative text-zinc-500 hover:text-white transition-colors p-1">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                {unreadMessages > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-xs font-black rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                    {unreadMessages > 9 ? '9+' : unreadMessages}
+                  </span>
+                )}
+              </Link>
 
               {/* Desktop auth links */}
               <Link href="/dashboard" className="text-xs text-zinc-600 hover:text-white transition-colors uppercase tracking-widest hidden md:block">
@@ -348,7 +394,7 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
           <div className="relative ml-auto w-72 max-w-full h-full bg-zinc-950 border-l border-zinc-800 flex flex-col overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-              <span className="text-lg font-black tracking-widest uppercase text-red-500">The Metalist</span>
+              <span className="text-xl font-display tracking-widest uppercase text-red-500">The Metalist</span>
               <button onClick={() => setMobileOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-1">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -371,7 +417,16 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
 
             {/* Nav links */}
             <div className="px-5 py-4 border-b border-zinc-800 flex flex-col gap-1">
-              <p className="text-xs text-zinc-700 uppercase tracking-widest mb-2">Navigate</p>
+              <p className="text-xs text-zinc-700 uppercase tracking-widest mb-2">Bands</p>
+              {BANDS_DROPDOWN.map(l => (
+                <Link key={l.href} href={l.href}
+                  className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900 last:border-0">
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+            <div className="px-5 py-4 border-b border-zinc-800 flex flex-col gap-1">
+              <p className="text-xs text-zinc-700 uppercase tracking-widest mb-2">Community</p>
               {NAV_LINKS.map(l => (
                 <Link key={l.href} href={l.href}
                   className="py-2.5 text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors border-b border-zinc-900 last:border-0">
@@ -501,6 +556,29 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Mobile Bottom Nav (logged-in only) ───────────────────────────────── */}
+      {currentUser && (
+        <nav className="fixed bottom-0 inset-x-0 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 flex justify-around items-center py-2 md:hidden z-40">
+          {[
+            { href: '/',          label: 'Home',    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /> },
+            { href: '/explore',   label: 'Explore', icon: <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /> },
+            { href: '/feed',      label: 'Feed',    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /> },
+            { href: '/dashboard', label: 'Me',      icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /> },
+          ].map(({ href, label, icon }) => {
+            const active = pathname === href || (href !== '/' && pathname.startsWith(href))
+            return (
+              <Link key={href} href={href}
+                className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${active ? 'text-red-500' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  {icon}
+                </svg>
+                <span className="text-[10px] uppercase tracking-widest font-bold">{label}</span>
+              </Link>
+            )
+          })}
+        </nav>
       )}
     </>
   )

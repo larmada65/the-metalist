@@ -108,7 +108,7 @@ export default function Register() {
       <GlobalNav backHref="/" backLabel="Home" />
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
-        <Link href="/" className="text-red-500 font-black tracking-widest uppercase text-2xl mb-12">
+        <Link href="/" className="text-red-500 font-display tracking-widest uppercase text-2xl mb-12">
           The Metalist
         </Link>
 
@@ -126,7 +126,7 @@ export default function Register() {
         </div>
       ) : (
       <div className="w-full max-w-md border border-zinc-800 rounded p-8">
-          <h1 className="text-2xl font-black uppercase tracking-wide mb-2">Join Metalist</h1>
+          <h1 className="text-2xl font-display uppercase tracking-wide mb-2">Join Metalist</h1>
           <p className="text-zinc-500 text-sm mb-8">Create your account. It's free.</p>
 
           {error && (

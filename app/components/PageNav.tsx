@@ -11,7 +11,7 @@ export default function PageNav({ backHref, backLabel, username, onLogout }: Pag
   return (
     <nav className="border-b border-zinc-800 px-6 py-3 flex items-center justify-between">
       <div className="flex flex-col">
-        <Link href="/" className="text-xl font-black tracking-widest uppercase text-red-500 leading-tight">
+        <Link href="/" className="text-xl font-display tracking-widest uppercase text-red-500 leading-tight">
           The Metalist
         </Link>
         <Link href={backHref} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors mt-0.5">

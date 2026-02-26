@@ -204,7 +204,7 @@ export default function CreateBand() {
       <GlobalNav backHref="/dashboard" backLabel="Back to dashboard" />
 
       <div className="max-w-2xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-black uppercase tracking-tight mb-2">Create Band Profile</h1>
+        <h1 className="text-4xl font-display uppercase tracking-tight mb-2">Create Band Profile</h1>
         <p className="text-zinc-500 mb-10">Tell metalheads who you are.</p>
 
         {/* Step indicator */}
