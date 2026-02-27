@@ -24,32 +24,37 @@ export default function MobileBottomNav() {
   const links = user ? LOGGED_IN_LINKS : LOGGED_OUT_LINKS
 
   return (
-    <nav
-      className="fixed bottom-0 inset-x-0 z-40 md:hidden border-t border-zinc-800 flex justify-around items-center py-2 bg-black [padding-bottom:max(0.5rem,env(safe-area-inset-bottom))]"
-      style={{ background: '#000' }}
-      aria-label="Mobile navigation"
-    >
-      {/* Black bar below toolbar — Safari bar zone */}
+    <>
+      {/* Solid black plate that covers the full bottom safe-area zone,
+          so Safari/Chrome bottom UI and the "pill" sit over pure black,
+          never over scrolling content. */}
       <div
-        className="absolute left-0 right-0 top-full h-[calc(env(safe-area-inset-bottom)+5rem)] bg-black pointer-events-none"
-        style={{ background: '#000' }}
+        className="fixed inset-x-0 bottom-0 z-40 md:hidden bg-black pointer-events-none"
+        style={{ height: 'max(3.5rem, calc(3.5rem + env(safe-area-inset-bottom, 0px)))' }}
         aria-hidden
       />
-      {links.map(({ href, label, icon }) => {
-        const active = pathname === href || (href !== '/' && pathname.startsWith(href))
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${active ? 'text-red-500' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-            </svg>
-            <span className="text-[10px] uppercase tracking-widest font-bold">{label}</span>
-          </Link>
-        )
-      })}
-    </nav>
+
+      {/* Actual navigation bar, rendered above the black plate. */}
+      <nav
+        className="fixed bottom-0 inset-x-0 z-50 md:hidden border-t border-zinc-800 flex justify-around items-center py-2 bg-black [padding-bottom:max(0.5rem,env(safe-area-inset-bottom))]"
+        aria-label="Mobile navigation"
+      >
+        {links.map(({ href, label, icon }) => {
+          const active = pathname === href || (href !== '/' && pathname.startsWith(href))
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${active ? 'text-red-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+              </svg>
+              <span className="text-[10px] uppercase tracking-widest font-bold">{label}</span>
+            </Link>
+          )
+        })}
+      </nav>
+    </>
   )
 }
