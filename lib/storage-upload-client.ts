@@ -11,13 +11,18 @@ export async function uploadViaApi(file: File, path: string, bucket: string) {
 
   if (!res.ok) {
     let message = `HTTP ${res.status}`
-    try {
-      const data = await res.json()
-      if (data?.error) {
-        message = data.error
+    if (res.status === 413) {
+      message =
+        'File too large. Maximum size is 25MB. If your file is under 25MB, the server may have a lower limit—try a smaller file or contact support.'
+    } else {
+      try {
+        const data = await res.json()
+        if (data?.error) {
+          message = data.error
+        }
+      } catch {
+        // ignore JSON parse errors
       }
-    } catch {
-      // ignore JSON parse errors
     }
     throw new Error(message)
   }
