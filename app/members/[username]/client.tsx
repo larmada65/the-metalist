@@ -158,34 +158,38 @@ export default function MemberProfileClient({ username }: { username: string }) 
       if (user) setCurrentUser(user.id)
 
       const qUsername = username.trim()
-      const coreCols = 'id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, primary_profile'
+      // Safest: columns that exist before migrations 008/009/011
+      const minimalCols = 'id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear'
+      const withPrimary = minimalCols + ', primary_profile'
       const producerCols = ', producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links, producer_specialization, producer_availability'
 
-      const { data: profileData1, error: err1 } = await supabase
-        .from('profiles')
-        .select(coreCols + producerCols)
-        .ilike('username', qUsername)
-        .maybeSingle()
-
       type ProfileRow = Record<string, unknown> | null
-      let profileData: ProfileRow = profileData1 as ProfileRow
-      if (err1 || !profileData1) {
-        const { data: fallback } = await supabase
+      let profileData: ProfileRow = null
+
+      // Try full select first, then fall back to fewer columns (in case migrations 008/009/011 not run)
+      for (const cols of [withPrimary + producerCols, withPrimary, minimalCols]) {
+        const { data, error } = await supabase
           .from('profiles')
-          .select(coreCols)
+          .select(cols)
           .ilike('username', qUsername)
           .maybeSingle()
-        profileData = fallback as ProfileRow
+        if (!error && data && typeof data === 'object' && !('error' in data)) {
+          profileData = data as unknown as ProfileRow
+          break
+        }
       }
 
       if (!profileData && user) {
-        const { data: ownProfile } = await supabase
-          .from('profiles')
-          .select(coreCols)
-          .eq('id', user.id)
-          .single()
-        if (ownProfile && ownProfile.username?.toLowerCase() === qUsername.toLowerCase()) {
-          profileData = ownProfile
+        for (const cols of [withPrimary, minimalCols]) {
+          const { data: ownProfile, error: ownErr } = await supabase
+            .from('profiles')
+            .select(cols)
+            .eq('id', user.id)
+            .single()
+          if (!ownErr && ownProfile && typeof ownProfile === 'object' && !('error' in ownProfile) && (ownProfile as Record<string, unknown>).username && String((ownProfile as Record<string, unknown>).username).toLowerCase() === qUsername.toLowerCase()) {
+            profileData = ownProfile as unknown as ProfileRow
+            break
+          }
         }
       }
 
