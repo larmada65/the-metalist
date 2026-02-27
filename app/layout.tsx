@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "../components/Toast";
@@ -44,8 +45,39 @@ export default async function RootLayout({
           <ToastProvider>
             <AudioPlayerProvider>
               {/* Extra bottom padding for mobile nav + global audio player (player ~80px tall) */}
-              <div className="pb-28 md:pb-24">
+              <div className="pb-28 md:pb-24 flex flex-col min-h-screen">
                 {children}
+                <footer className="mt-auto border-t border-zinc-900/70 px-4 md:px-8 py-6 text-[11px] text-zinc-500 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <p className="tracking-widest uppercase">
+                    © {new Date().getFullYear()} The Metalist · Built for metalheads
+                  </p>
+                  <div className="flex flex-wrap gap-4 items-center">
+                    <Link
+                      href="/about"
+                      className="px-3 py-1.5 rounded-full border border-zinc-700 text-zinc-100 text-[11px] font-semibold uppercase tracking-[0.18em] hover:border-red-500 hover:text-red-400 transition-colors"
+                    >
+                      About Us
+                    </Link>
+                    <Link
+                      href="/privacy"
+                      className="uppercase tracking-[0.2em] hover:text-red-400"
+                    >
+                      Privacy
+                    </Link>
+                    <Link
+                      href="/terms"
+                      className="uppercase tracking-[0.2em] hover:text-red-400"
+                    >
+                      Terms
+                    </Link>
+                    <Link
+                      href="/contact"
+                      className="uppercase tracking-[0.2em] hover:text-red-400"
+                    >
+                      Contact
+                    </Link>
+                  </div>
+                </footer>
               </div>
               <MobileBottomNav />
             </AudioPlayerProvider>
