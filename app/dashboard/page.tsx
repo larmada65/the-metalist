@@ -56,6 +56,18 @@ export default function Dashboard() {
   const [releases, setReleases] = useState<Release[]>([])
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
   const [following, setFollowing] = useState<FollowingEntry[]>([])
+  const [profileBasics, setProfileBasics] = useState<{
+    first_name: string | null
+    last_name: string | null
+    avatar_url: string | null
+    is_producer: boolean | null
+    is_sound_engineer: boolean | null
+    is_musician: boolean | null
+    is_fan: boolean | null
+    genre_ids: number[] | null
+  } | null>(null)
+  const [bandsWithShows, setBandsWithShows] = useState<string[]>([])
+  const [bandsWithInfluences, setBandsWithInfluences] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
   const router = useRouter()
@@ -68,28 +80,62 @@ export default function Dashboard() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username')
+        .select('username, first_name, last_name, avatar_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids')
         .eq('id', user.id)
         .single()
-      if (profile) setUsername(profile.username)
+      if (profile) {
+        setUsername(profile.username)
+        setProfileBasics({
+          first_name: profile.first_name ?? null,
+          last_name: profile.last_name ?? null,
+          avatar_url: profile.avatar_url ?? null,
+          is_producer: profile.is_producer ?? null,
+          is_sound_engineer: profile.is_sound_engineer ?? null,
+          is_musician: profile.is_musician ?? null,
+          is_fan: profile.is_fan ?? null,
+          genre_ids: profile.genre_ids ?? null,
+        })
+      }
 
       // Get all bands this user is part of
       const { data: membershipData } = await supabase
         .from('band_members')
-        .select('band_id, role, status, bands(id, name, slug, logo_url, country, year_formed, is_published)')
+        .select('band_id, role, status, bands(id, name, slug, logo_url, country, year_formed, is_published, description)')
         .eq('profile_id', user.id)
         .eq('status', 'approved')
       if (membershipData) setMemberships(membershipData as any)
 
-      // Get releases for all bands
+      // Get releases + shows + influences for all bands
       if (membershipData && membershipData.length > 0) {
         const bandIds = membershipData.map((m: any) => m.band_id)
-        const { data: releaseData } = await supabase
-          .from('releases')
-          .select('id, band_id, title, release_type, release_year, cover_url')
-          .in('band_id', bandIds)
-          .order('release_year', { ascending: false })
-        if (releaseData) setReleases(releaseData)
+        const [
+          { data: releaseData },
+          { data: showData },
+          { data: influenceData },
+        ] = await Promise.all([
+          supabase
+            .from('releases')
+            .select('id, band_id, title, release_type, release_year, cover_url, published')
+            .in('band_id', bandIds)
+            .order('release_year', { ascending: false }),
+          supabase
+            .from('shows')
+            .select('band_id')
+            .in('band_id', bandIds),
+          supabase
+            .from('band_influences')
+            .select('band_id')
+            .in('band_id', bandIds),
+        ])
+        if (releaseData) setReleases(releaseData as any)
+        if (showData) {
+          const ids = Array.from(new Set((showData as any[]).map(s => s.band_id as string)))
+          setBandsWithShows(ids)
+        }
+        if (influenceData) {
+          const ids = Array.from(new Set((influenceData as any[]).map(i => i.band_id as string)))
+          setBandsWithInfluences(ids)
+        }
       }
 
       // Get people this user follows
@@ -143,6 +189,25 @@ export default function Dashboard() {
   const leaderBands = memberships.filter(m => m.role === 'leader')
   const memberBands = memberships.filter(m => m.role === 'member')
 
+  // Profile completion
+  let profileCompletionPercent = 100
+  const profileMissing: string[] = []
+  if (profileBasics) {
+    const hasName = !!(profileBasics.first_name && profileBasics.last_name)
+    const hasAvatar = !!profileBasics.avatar_url
+    const hasRole = !!(profileBasics.is_producer || profileBasics.is_sound_engineer || profileBasics.is_musician || profileBasics.is_fan)
+    const hasGenres = (profileBasics.genre_ids?.length ?? 0) > 0
+    const flags = [hasName, hasAvatar, hasRole, hasGenres]
+    const done = flags.filter(Boolean).length
+    profileCompletionPercent = Math.round((done / flags.length) * 100)
+    if (!hasName) profileMissing.push('Add your first and last name')
+    if (!hasAvatar) profileMissing.push('Upload a profile photo')
+    if (!hasRole) profileMissing.push('Choose at least one role (producer, engineer, musician, fan)')
+    if (!hasGenres) profileMissing.push('Pick your favourite genres')
+  } else {
+    profileCompletionPercent = 0
+  }
+
   if (loading) return (
     <main className="min-h-screen bg-black text-white">
       <GlobalNav />
@@ -173,6 +238,41 @@ export default function Dashboard() {
             Your<br /><span className="text-red-500">Dashboard</span>
           </h1>
         </div>
+
+        {/* Profile completion nudge */}
+        {profileBasics && profileCompletionPercent < 100 && (
+          <div className="mb-10 border border-zinc-800 rounded-xl p-5 bg-zinc-950/70">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-xs uppercase tracking-widest text-zinc-500">
+                Complete your profile ({profileCompletionPercent}%)
+              </p>
+              {profileMissing.length > 0 && (
+                <span className="text-[11px] text-zinc-500">
+                  {profileMissing.length} step{profileMissing.length > 1 ? 's' : ''} left
+                </span>
+              )}
+            </div>
+            <div className="h-1.5 rounded-full bg-zinc-900 overflow-hidden mb-3">
+              <div
+                className="h-full bg-red-600"
+                style={{ width: `${profileCompletionPercent}%` }}
+              />
+            </div>
+            {profileMissing.length > 0 && (
+              <ul className="text-xs text-zinc-500 space-y-1 mb-4 list-disc list-inside">
+                {profileMissing.slice(0, 3).map(item => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+            <Link
+              href="/dashboard/profile"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-200 hover:border-red-500 hover:text-white transition-colors"
+            >
+              Go to profile settings
+            </Link>
+          </div>
+        )}
 
         {/* Band invitations for you */}
         {pendingRequests.length > 0 && (
@@ -230,9 +330,17 @@ export default function Dashboard() {
                   {leaderBands.map(m => {
                     const band = m.bands
                     const bandReleases = releases.filter(r => r.band_id === m.band_id)
+                    const hasLogo = !!band.logo_url
+                    const hasPublishedRelease = bandReleases.some((r: any) => r.published)
+                    const hasBioOrInfluence = !!(band as any).description || bandsWithInfluences.includes(band.id)
+                    const hasShow = bandsWithShows.includes(band.id)
+                    const checklistFlags = [hasLogo, hasPublishedRelease, hasBioOrInfluence, hasShow]
+                    const checklistDone = checklistFlags.filter(Boolean).length
+                    const checklistTotal = checklistFlags.length
+                    const checklistPercent = Math.round((checklistDone / checklistTotal) * 100)
                     return (
                       <Link key={m.band_id} href={`/dashboard/manage/${m.band_id}`}
-                        className="group border border-zinc-800 hover:border-zinc-700 rounded-xl p-6 flex items-center gap-6 transition-all hover:bg-zinc-950">
+                        className="group border border-zinc-800 hover:border-zinc-700 rounded-xl p-6 flex items-start gap-6 transition-all hover:bg-zinc-950">
                         <div className="w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                           {band.logo_url
                             ? <img src={band.logo_url} alt={band.name} className="w-full h-full object-cover" />
@@ -260,8 +368,56 @@ export default function Dashboard() {
                             {band.year_formed && <span>Est. {band.year_formed}</span>}
                             <span>{bandReleases.length} release{bandReleases.length !== 1 ? 's' : ''}</span>
                           </div>
+
+                          {/* Band onboarding checklist */}
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between text-[11px] text-zinc-600 mb-1">
+                              <span className="uppercase tracking-widest">Band setup</span>
+                              <span>{checklistDone}/{checklistTotal} done</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-zinc-900 overflow-hidden mb-2">
+                              <div
+                                className="h-full bg-red-600"
+                                style={{ width: `${checklistPercent}%` }}
+                              />
+                            </div>
+                            <ul className="text-[11px] text-zinc-500 space-y-1.5">
+                              <li className="flex items-center gap-2">
+                                <span className={`inline-flex w-4 h-4 rounded-full border items-center justify-center ${
+                                  hasLogo ? 'border-green-500 bg-green-600/20 text-green-400' : 'border-zinc-700'
+                                }`}>
+                                  {hasLogo && <span className="text-[10px]">✓</span>}
+                                </span>
+                                Add band logo
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className={`inline-flex w-4 h-4 rounded-full border items-center justify-center ${
+                                  hasPublishedRelease ? 'border-green-500 bg-green-600/20 text-green-400' : 'border-zinc-700'
+                                }`}>
+                                  {hasPublishedRelease && <span className="text-[10px]">✓</span>}
+                                </span>
+                                Publish your first release
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className={`inline-flex w-4 h-4 rounded-full border items-center justify-center ${
+                                  hasBioOrInfluence ? 'border-green-500 bg-green-600/20 text-green-400' : 'border-zinc-700'
+                                }`}>
+                                  {hasBioOrInfluence && <span className="text-[10px]">✓</span>}
+                                </span>
+                                Add band bio & influences
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className={`inline-flex w-4 h-4 rounded-full border items-center justify-center ${
+                                  hasShow ? 'border-green-500 bg-green-600/20 text-green-400' : 'border-zinc-700'
+                                }`}>
+                                  {hasShow && <span className="text-[10px]">✓</span>}
+                                </span>
+                                Share your first show
+                              </li>
+                            </ul>
+                          </div>
                         </div>
-                        <div className="text-zinc-600 group-hover:text-red-500 transition-colors">
+                        <div className="text-zinc-600 group-hover:text-red-500 transition-colors self-center">
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>

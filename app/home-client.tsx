@@ -117,6 +117,7 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
   const [username, setUsername] = useState<string | undefined>()
   const [userBand, setUserBand] = useState<UserBand | null>(null)
   const [authLoading, setAuthLoading] = useState(!initialUserId)
+  const [showIntroBanner, setShowIntroBanner] = useState(false)
 
   const carouselRef = useRef<HTMLDivElement>(null)
   const [activeCard, setActiveCard] = useState(0)
@@ -124,6 +125,13 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
 
   const supabase = createClient()
   const router = useRouter()
+
+  // First-time homepage banner (per device)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const seen = window.localStorage.getItem('metalist:seenHomeIntro')
+    if (!seen) setShowIntroBanner(true)
+  }, [])
 
   useEffect(() => {
     if (!initialUserId) {
@@ -244,6 +252,37 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
           <div className="flex gap-3">
             <div className="h-11 w-28 bg-zinc-900 rounded-lg animate-pulse" />
             <div className="h-11 w-36 bg-zinc-900 rounded-lg animate-pulse" />
+          </div>
+        )}
+
+        {/* First-time intro banner */}
+        {showIntroBanner && (
+          <div className="mt-10 border border-zinc-800 rounded-xl bg-zinc-950/70 px-4 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row gap-4 items-start">
+            <div className="flex-1">
+              <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">
+                Welcome to The Metalist
+              </p>
+              <p className="text-sm text-zinc-100">
+                The Metalist is a curated place to discover and promote metal bands, demos, and releases.
+              </p>
+              <ul className="mt-3 text-xs text-zinc-400 space-y-1.5 list-disc list-inside">
+                <li>Browse bands, rankings, and the latest releases.</li>
+                <li>Upload demos to get feedback from producers and engineers.</li>
+                <li>Follow bands and stay on top of new shows and posts.</li>
+              </ul>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.localStorage.setItem('metalist:seenHomeIntro', '1')
+                }
+                setShowIntroBanner(false)
+              }}
+              className="self-stretch sm:self-center px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-[0.18em] border border-zinc-700 text-zinc-300 hover:border-red-500 hover:text-white transition-colors"
+            >
+              Got it
+            </button>
           </div>
         )}
 
@@ -639,9 +678,6 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
         </div>
       </section>
 
-      <footer className="border-t border-zinc-800 px-6 py-8 text-center text-zinc-700 text-xs">
-        © {new Date().getFullYear()} The Metalist — Built for metalheads
-      </footer>
     </main>
   )
 }
