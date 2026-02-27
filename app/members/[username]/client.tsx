@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '../../../lib/supabase'
 import Link from 'next/link'
 import GlobalNav from '../../../components/GlobalNav'
+import { createClient } from '../../../lib/supabase'
+import { uploadViaApi } from '../../../lib/storage-upload-client'
 import { useAudioPlayer } from '../../../components/AudioPlayerProvider'
 import { canUploadDemo, normalizeTier, type SubscriptionTier } from '../../../lib/subscriptions'
 
@@ -309,12 +310,10 @@ export default function MemberProfileClient({ username }: { username: string }) 
     const demoId = crypto.randomUUID()
     const path = `demos/${profile.id}/${demoId}.mp3`
 
-    const { error: uploadErr } = await supabase.storage
-      .from('band-logos')
-      .upload(path, demoFile, { contentType: 'audio/mpeg' })
-
-    if (uploadErr) {
-      setDemoError('Upload failed: ' + uploadErr.message)
+    try {
+      await uploadViaApi(demoFile, path, 'band-logos')
+    } catch (e: any) {
+      setDemoError('Upload failed: ' + (e?.message || 'Unknown error'))
       setDemoUploading(false)
       return
     }

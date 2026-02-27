@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../components/GlobalNav'
+import { createClient } from '../../../lib/supabase'
+import { uploadViaApi } from '../../../lib/storage-upload-client'
 import { canUploadAudioTrack, canAddLyrics, normalizeTier } from '../../../lib/subscriptions'
 
 const AUDIO_BUCKET = 'band-logos'
@@ -22,31 +23,6 @@ type Track = {
 
 function slugify(s: string): string {
   return s.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40) || 'track'
-}
-
-async function uploadViaApi(file: File, path: string, bucket: string) {
-  const form = new FormData()
-  form.append('file', file)
-  form.append('path', path)
-  form.append('bucket', bucket)
-
-  const res = await fetch('/api/storage-upload', {
-    method: 'POST',
-    body: form,
-  })
-
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`
-    try {
-      const data = await res.json()
-      if (data?.error) {
-        message = data.error
-      }
-    } catch {
-      // ignore JSON parse errors
-    }
-    throw new Error(message)
-  }
 }
 
 export default function AddRelease() {

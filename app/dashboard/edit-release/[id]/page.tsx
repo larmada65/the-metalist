@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { createClient } from '../../../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../../components/GlobalNav'
+import { createClient } from '../../../../lib/supabase'
+import { uploadViaApi } from '../../../../lib/storage-upload-client'
 import { canUploadAudioTrack, canAddLyrics, normalizeTier } from '../../../../lib/subscriptions'
 
 const AUDIO_BUCKET = 'band-logos'
@@ -246,17 +247,19 @@ export default function EditRelease() {
       if (coverFile && bandId) {
         const fileExt = coverFile.name.split('.').pop()
         const fileName = `${bandId}-${Date.now()}.${fileExt}`
-        const { error: uploadError } = await supabase.storage
-          .from('band-logos')
-          .upload(`covers/${fileName}`, coverFile)
-        if (uploadError) {
-          setError('Failed to upload cover: ' + uploadError.message)
+        const coverPath = `covers/${fileName}`
+
+        try {
+          await uploadViaApi(coverFile, coverPath, 'band-logos')
+        } catch (e: any) {
+          setError('Failed to upload cover: ' + (e?.message || 'Unknown error'))
           setSaving(false)
           return
         }
+
         const { data: { publicUrl } } = supabase.storage
           .from('band-logos')
-          .getPublicUrl(`covers/${fileName}`)
+          .getPublicUrl(coverPath)
         newCoverUrl = publicUrl
       }
 
@@ -288,14 +291,15 @@ export default function EditRelease() {
           const ext = t.audio_file.name.toLowerCase().endsWith('.mp3') ? 'mp3' : t.audio_file.name.split('.').pop() || 'mp3'
           const safeName = `${i + 1}-${slugify(t.title)}.${ext}`
           const path = `${AUDIO_PREFIX}/${bandId}/${id}/${safeName}`
-          const { error: upErr } = await supabase.storage
-            .from(AUDIO_BUCKET)
-            .upload(path, t.audio_file, { contentType: t.audio_file.type || 'audio/mpeg' })
-          if (upErr) {
-            setError('Failed to upload track: ' + upErr.message)
+
+          try {
+            await uploadViaApi(t.audio_file, path, AUDIO_BUCKET)
+          } catch (e: any) {
+            setError('Failed to upload track: ' + (e?.message || 'Unknown error'))
             setSaving(false)
             return
           }
+
           audioPath = path
           embedUrl = ''
         }

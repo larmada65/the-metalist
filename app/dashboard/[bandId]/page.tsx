@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
-import { createClient } from '../../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../components/GlobalNav'
+import { createClient } from '../../../lib/supabase'
+import { uploadViaApi } from '../../../lib/storage-upload-client'
 
 type Band = {
   id: string
@@ -258,10 +259,17 @@ export default function ManageBand() {
     setUploadingPic(true)
     const fileExt = bandPicFile.name.split('.').pop()
     const fileName = `bandpic-${band.id}-${Date.now()}.${fileExt}`
-    const { error: uploadError } = await supabase.storage
-      .from('band-logos').upload(`bandpics/${fileName}`, bandPicFile)
-    if (uploadError) { alert('Upload failed: ' + uploadError.message); setUploadingPic(false); return }
-    const { data: { publicUrl } } = supabase.storage.from('band-logos').getPublicUrl(`bandpics/${fileName}`)
+    const picPath = `bandpics/${fileName}`
+
+    try {
+      await uploadViaApi(bandPicFile, picPath, 'band-logos')
+    } catch (e: any) {
+      alert('Upload failed: ' + (e?.message || 'Unknown error'))
+      setUploadingPic(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('band-logos').getPublicUrl(picPath)
     await supabase.from('bands').update({ band_pic_url: publicUrl }).eq('id', band.id)
     setBand(prev => prev ? { ...prev, band_pic_url: publicUrl } : prev)
     setBandPicFile(null)

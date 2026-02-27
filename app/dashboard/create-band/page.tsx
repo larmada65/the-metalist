@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../components/GlobalNav'
+import { createClient } from '../../../lib/supabase'
+import { uploadViaApi } from '../../../lib/storage-upload-client'
 
 const COUNTRIES = [
   'Afghanistan', 'Albania', 'Algeria', 'Argentina', 'Australia', 'Austria',
@@ -137,19 +138,19 @@ export default function CreateBand() {
     // Upload logo
     const fileExt = logoFile.name.split('.').pop()
     const fileName = `${user.id}-${Date.now()}.${fileExt}`
-    const { error: uploadError } = await supabase.storage
-      .from('band-logos')
-      .upload(fileName, logoFile)
+    const logoPath = fileName
 
-    if (uploadError) {
-      setError('Failed to upload logo: ' + uploadError.message)
+    try {
+      await uploadViaApi(logoFile, logoPath, 'band-logos')
+    } catch (e: any) {
+      setError('Failed to upload logo: ' + (e?.message || 'Unknown error'))
       setLoading(false)
       return
     }
 
     const { data: { publicUrl } } = supabase.storage
       .from('band-logos')
-      .getPublicUrl(fileName)
+      .getPublicUrl(logoPath)
 
     // Create band
     const { data: band, error: bandError } = await supabase
