@@ -24,6 +24,31 @@ function slugify(s: string): string {
   return s.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40) || 'track'
 }
 
+async function uploadViaApi(file: File, path: string, bucket: string) {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('path', path)
+  form.append('bucket', bucket)
+
+  const res = await fetch('/api/storage-upload', {
+    method: 'POST',
+    body: form,
+  })
+
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try {
+      const data = await res.json()
+      if (data?.error) {
+        message = data.error
+      }
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new Error(message)
+  }
+}
+
 export default function AddRelease() {
   const [bandId, setBandId] = useState<string | null>(null)
   const [bandSlug, setBandSlug] = useState<string | null>(null)
@@ -180,19 +205,19 @@ export default function AddRelease() {
         if (coverFile) {
           const fileExt = coverFile.name.split('.').pop()
           const fileName = `${bandId}-${Date.now()}.${fileExt}`
-          const { error: uploadError } = await supabase.storage
-            .from('band-logos')
-            .upload(`covers/${fileName}`, coverFile)
+          const coverPath = `covers/${fileName}`
 
-          if (uploadError) {
-            setError('Failed to upload cover: ' + uploadError.message)
+          try {
+            await uploadViaApi(coverFile, coverPath, 'band-logos')
+          } catch (e: any) {
+            setError('Failed to upload cover: ' + (e?.message || 'Unknown error'))
             setLoading(false)
             return
           }
 
           const { data: { publicUrl } } = supabase.storage
             .from('band-logos')
-            .getPublicUrl(`covers/${fileName}`)
+            .getPublicUrl(coverPath)
           coverUrl = publicUrl
         }
 
@@ -271,14 +296,15 @@ export default function AddRelease() {
           const ext = t.audio_file.name.toLowerCase().endsWith('.mp3') ? 'mp3' : t.audio_file.name.split('.').pop() || 'mp3'
           const safeName = `${i + 1}-${slugify(t.title)}.${ext}`
           const path = `${AUDIO_PREFIX}/${bandId}/${finalReleaseId}/${safeName}`
-          const { error: upErr } = await supabase.storage
-            .from(AUDIO_BUCKET)
-            .upload(path, t.audio_file, { contentType: t.audio_file.type || 'audio/mpeg' })
-          if (upErr) {
-            setError('Failed to upload track: ' + upErr.message)
+
+          try {
+            await uploadViaApi(t.audio_file, path, AUDIO_BUCKET)
+          } catch (e: any) {
+            setError('Failed to upload track: ' + (e?.message || 'Unknown error'))
             setLoading(false)
             return
           }
+
           audioPath = path
           embedUrl = ''
         }
