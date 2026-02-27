@@ -86,44 +86,54 @@ export default function ProfileSettings() {
       setUserId(user.id)
       setEmail(user.email || '')
 
-      const [{ data: profile }, { data: genreData }] = await Promise.all([
-        supabase.from('profiles')
-          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links, producer_specialization, producer_availability, primary_profile')
-          .eq('id', user.id).single(),
-        supabase.from('genres_list').select('id, name').order('name'),
-      ])
+      const { data: genreData } = await supabase.from('genres_list').select('id, name').order('name')
+      if (genreData) setAllGenres(genreData)
+
+      // Try full select first, then fall back to fewer columns (in case migrations 008/009/011 not run)
+      const fullSelect = 'first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links, producer_specialization, producer_availability, primary_profile'
+      const minimalSelect = 'first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear'
+      const withPrimary = minimalSelect + ', primary_profile'
+
+      let profile: Record<string, unknown> | null = null
+      for (const cols of [fullSelect, withPrimary, minimalSelect]) {
+        const { data, error } = await supabase.from('profiles').select(cols).eq('id', user.id).single()
+        if (!error && data && typeof data === 'object' && !('error' in data)) {
+          profile = data as Record<string, unknown>
+          break
+        }
+      }
 
       if (profile) {
-        setFirstName(profile.first_name || '')
-        setLastName(profile.last_name || '')
-        setUsername(profile.username || '')
-        setBio(profile.bio || '')
-        setInstagramUrl(profile.instagram_url || '')
-        setTwitterUrl(profile.twitter_url || '')
-        setWebsiteUrl(profile.website_url || '')
-        setIsProducer(profile.is_producer ?? false)
-        setIsSoundEngineer(profile.is_sound_engineer ?? false)
-        setIsMusician(profile.is_musician ?? false)
-        setIsFan(profile.is_fan ?? false)
-        setGenreIds(profile.genre_ids || [])
-        setAvatarUrl(profile.avatar_url || null)
-        setAvatarPreview(profile.avatar_url || null)
-        setMusicianInstruments(profile.musician_instruments || [])
-        setMusicianLevel(profile.musician_level || '')
-        setMusicianLink(profile.musician_link || '')
-        setProductionLevel(profile.production_level || '')
-        setStudioGear(profile.studio_gear || '')
-        setProducerSoftware(profile.producer_software || '')
-        setProducerGuitarPlugins(profile.producer_guitar_plugins || '')
-        setProducerDrumPlugins(profile.producer_drum_plugins || '')
-        setProducerBassPlugins(profile.producer_bass_plugins || '')
-        setProducerGenreIds(profile.producer_genre_ids || [])
-        setProducerPortfolioLinks(Array.isArray(profile.producer_portfolio_links) ? profile.producer_portfolio_links : [])
-        setProducerSpecialization(profile.producer_specialization || '')
-        setProducerAvailability(profile.producer_availability || '')
-        setPrimaryProfile(profile.primary_profile || null)
+        const p = profile as Record<string, unknown>
+        setFirstName(String(p.first_name ?? ''))
+        setLastName(String(p.last_name ?? ''))
+        setUsername(String(p.username ?? ''))
+        setBio(String(p.bio ?? ''))
+        setInstagramUrl(String(p.instagram_url ?? ''))
+        setTwitterUrl(String(p.twitter_url ?? ''))
+        setWebsiteUrl(String(p.website_url ?? ''))
+        setIsProducer(Boolean(p.is_producer))
+        setIsSoundEngineer(Boolean(p.is_sound_engineer))
+        setIsMusician(Boolean(p.is_musician))
+        setIsFan(Boolean(p.is_fan))
+        setGenreIds(Array.isArray(p.genre_ids) ? p.genre_ids as number[] : [])
+        setAvatarUrl(typeof p.avatar_url === 'string' ? p.avatar_url : null)
+        setAvatarPreview(typeof p.avatar_url === 'string' ? p.avatar_url : null)
+        setMusicianInstruments(Array.isArray(p.musician_instruments) ? p.musician_instruments as string[] : [])
+        setMusicianLevel(String(p.musician_level ?? ''))
+        setMusicianLink(String(p.musician_link ?? ''))
+        setProductionLevel(String(p.production_level ?? ''))
+        setStudioGear(String(p.studio_gear ?? ''))
+        setProducerSoftware(String(p.producer_software ?? ''))
+        setProducerGuitarPlugins(String(p.producer_guitar_plugins ?? ''))
+        setProducerDrumPlugins(String(p.producer_drum_plugins ?? ''))
+        setProducerBassPlugins(String(p.producer_bass_plugins ?? ''))
+        setProducerGenreIds(Array.isArray(p.producer_genre_ids) ? p.producer_genre_ids as number[] : [])
+        setProducerPortfolioLinks(Array.isArray(p.producer_portfolio_links) ? p.producer_portfolio_links as { url: string; label?: string }[] : [])
+        setProducerSpecialization(String(p.producer_specialization ?? ''))
+        setProducerAvailability(String(p.producer_availability ?? ''))
+        setPrimaryProfile(typeof p.primary_profile === 'string' ? p.primary_profile : null)
       }
-      if (genreData) setAllGenres(genreData)
       setLoading(false)
     }
     load()
