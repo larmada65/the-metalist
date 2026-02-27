@@ -25,6 +25,7 @@ export default function Register() {
   const [isSoundEngineer, setIsSoundEngineer] = useState(false)
   const [isMusician, setIsMusician] = useState(false)
   const [isFan, setIsFan] = useState(false)
+  const [roleConfirmRole, setRoleConfirmRole] = useState<'musician' | 'producer' | 'engineer' | 'fan' | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -36,6 +37,30 @@ export default function Register() {
 
   const toggleGenre = (id: number) =>
     setGenreIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
+  // Show confirmation when selecting a role (adding, not removing)
+  const handleRoleClick = (
+    role: 'musician' | 'producer' | 'engineer' | 'fan',
+    isSelected: boolean,
+    setSelected: (v: boolean | ((prev: boolean) => boolean)) => void
+  ) => {
+    if (isSelected) {
+      setSelected(false) // deselect without confirmation
+      return
+    }
+    setRoleConfirmRole(role)
+  }
+
+  const confirmRoleChoice = () => {
+    if (!roleConfirmRole) return
+    switch (roleConfirmRole) {
+      case 'musician': setIsMusician(true); break
+      case 'producer': setIsProducer(true); break
+      case 'engineer': setIsSoundEngineer(true); break
+      case 'fan': setIsFan(true); break
+    }
+    setRoleConfirmRole(null)
+  }
 
   const handleRegister = async () => {
     setError('')
@@ -225,25 +250,25 @@ export default function Register() {
                 I am a… <span className="text-zinc-700 normal-case tracking-normal">(required — select all that apply)</span>
               </label>
               <div className="flex flex-wrap gap-2 mt-2">
-                <button type="button" onClick={() => setIsMusician(v => !v)}
+                <button type="button" onClick={() => handleRoleClick('musician', isMusician, setIsMusician)}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isMusician ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                   }`}>
                   🎸 Musician
                 </button>
-                <button type="button" onClick={() => setIsProducer(v => !v)}
+                <button type="button" onClick={() => handleRoleClick('producer', isProducer, setIsProducer)}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isProducer ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                   }`}>
                   🎚 Producer
                 </button>
-                <button type="button" onClick={() => setIsSoundEngineer(v => !v)}
+                <button type="button" onClick={() => handleRoleClick('engineer', isSoundEngineer, setIsSoundEngineer)}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isSoundEngineer ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                   }`}>
                   🔊 Sound Engineer
                 </button>
-                <button type="button" onClick={() => setIsFan(v => !v)}
+                <button type="button" onClick={() => handleRoleClick('fan', isFan, setIsFan)}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isFan ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                   }`}>
@@ -251,6 +276,27 @@ export default function Register() {
                 </button>
               </div>
             </div>
+
+            {/* Role confirmation modal */}
+            {roleConfirmRole && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <div className="w-full max-w-sm border border-zinc-800 rounded-xl p-6 bg-zinc-950 shadow-2xl">
+                  <p className="text-center text-zinc-300 text-sm mb-6">
+                    Are you sure about this choice? This will define your experience on The Metalist — choose wisely.
+                  </p>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setRoleConfirmRole(null)}
+                      className="flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-white transition-colors">
+                      Cancel
+                    </button>
+                    <button type="button" onClick={confirmRoleChoice}
+                      className="flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-red-600 hover:bg-red-700 text-white transition-colors">
+                      Confirm
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {allGenres.length > 0 && (
               <div>

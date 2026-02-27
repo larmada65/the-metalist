@@ -48,6 +48,12 @@ export default function ProfileSettings() {
   // Producer / Engineer section
   const [productionLevel, setProductionLevel] = useState('')
   const [studioGear, setStudioGear] = useState('')
+  const [producerSoftware, setProducerSoftware] = useState('')
+  const [producerGuitarPlugins, setProducerGuitarPlugins] = useState('')
+  const [producerDrumPlugins, setProducerDrumPlugins] = useState('')
+  const [producerBassPlugins, setProducerBassPlugins] = useState('')
+  const [producerGenreIds, setProducerGenreIds] = useState<number[]>([])
+  const [producerPortfolioLinks, setProducerPortfolioLinks] = useState<{ url: string; label?: string }[]>([])
 
   // Save / password state
   const [savingProfile, setSavingProfile] = useState(false)
@@ -74,7 +80,7 @@ export default function ProfileSettings() {
 
       const [{ data: profile }, { data: genreData }] = await Promise.all([
         supabase.from('profiles')
-          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear')
+          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links')
           .eq('id', user.id).single(),
         supabase.from('genres_list').select('id, name').order('name'),
       ])
@@ -99,6 +105,12 @@ export default function ProfileSettings() {
         setMusicianLink(profile.musician_link || '')
         setProductionLevel(profile.production_level || '')
         setStudioGear(profile.studio_gear || '')
+        setProducerSoftware(profile.producer_software || '')
+        setProducerGuitarPlugins(profile.producer_guitar_plugins || '')
+        setProducerDrumPlugins(profile.producer_drum_plugins || '')
+        setProducerBassPlugins(profile.producer_bass_plugins || '')
+        setProducerGenreIds(profile.producer_genre_ids || [])
+        setProducerPortfolioLinks(Array.isArray(profile.producer_portfolio_links) ? profile.producer_portfolio_links : [])
       }
       if (genreData) setAllGenres(genreData)
       setLoading(false)
@@ -185,6 +197,15 @@ export default function ProfileSettings() {
         musician_link: musicianLink.trim() || null,
         production_level: productionLevel || null,
         studio_gear: studioGear.trim() || null,
+        producer_software: producerSoftware.trim() || null,
+        producer_guitar_plugins: producerGuitarPlugins.trim() || null,
+        producer_drum_plugins: producerDrumPlugins.trim() || null,
+        producer_bass_plugins: producerBassPlugins.trim() || null,
+        producer_genre_ids: producerGenreIds.length > 0 ? producerGenreIds : null,
+        producer_portfolio_links: (() => {
+          const valid = producerPortfolioLinks.filter(l => l.url?.trim())
+          return valid.length > 0 ? valid.map(l => ({ url: l.url.trim(), label: l.label?.trim() || undefined })) : null
+        })(),
       })
       .eq('id', userId)
 
@@ -444,7 +465,7 @@ export default function ProfileSettings() {
               <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-1">
                 {isProducer && isSoundEngineer ? 'Production & Engineering' : isProducer ? 'As a Producer' : 'As a Sound Engineer'}
               </h2>
-              <p className="text-xs text-zinc-600 mb-5">Shown on your public profile and in the Musicians directory.</p>
+              <p className="text-xs text-zinc-600 mb-5">Shown on your public profile and in the Prod/Engineers directory.</p>
               <div className="flex flex-col gap-4">
                 <div>
                   <label className={labelClass}>Level</label>
@@ -462,15 +483,78 @@ export default function ProfileSettings() {
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>Equipment & Software</label>
-                  <textarea value={studioGear} onChange={e => setStudioGear(e.target.value)}
-                    rows={3} maxLength={500} className={inputClass + ' resize-y'}
-                    placeholder="e.g. Pro Tools, SSL console, UAD plugins, Neve 1073s..." />
-                  <p className="text-xs text-zinc-700 mt-1">{studioGear.length}/500</p>
+                  <label className={labelClass}>Software Used</label>
+                  <input type="text" value={producerSoftware} onChange={e => setProducerSoftware(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. Pro Tools, Logic Pro, Reaper, Cubase..." />
                 </div>
                 <div>
-                  <label className={labelClass}>Approach / About your work</label>
-                  <p className="text-xs text-zinc-600 mb-2">Describe your style, what you specialise in, and what bands can expect working with you. Use the Bio field above for this.</p>
+                  <label className={labelClass}>Guitar Plugins</label>
+                  <input type="text" value={producerGuitarPlugins} onChange={e => setProducerGuitarPlugins(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. Neural DSP, Amplitube, Guitar Rig..." />
+                </div>
+                <div>
+                  <label className={labelClass}>Drum Plugins</label>
+                  <input type="text" value={producerDrumPlugins} onChange={e => setProducerDrumPlugins(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. EZdrummer, Superior Drummer, Addictive Drums..." />
+                </div>
+                <div>
+                  <label className={labelClass}>Bass Plugins</label>
+                  <input type="text" value={producerBassPlugins} onChange={e => setProducerBassPlugins(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. Ampeg SVT sims, bass amp plugins..." />
+                </div>
+                <div>
+                  <label className={labelClass}>Equipment & Software (general)</label>
+                  <textarea value={studioGear} onChange={e => setStudioGear(e.target.value)}
+                    rows={3} maxLength={500} className={inputClass + ' resize-y'}
+                    placeholder="e.g. SSL console, UAD plugins, Neve 1073s, outboard gear..." />
+                  <p className="text-xs text-zinc-700 mt-1">{studioGear.length}/500</p>
+                </div>
+                {allGenres.length > 0 && (
+                  <div>
+                    <label className={labelClass}>Genres I&apos;m Open to Work On</label>
+                    <p className="text-xs text-zinc-600 mb-2">Genres you&apos;re interested in producing or engineering for.</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {allGenres.map(g => (
+                        <button key={g.id} type="button"
+                          onClick={() => setProducerGenreIds(prev => prev.includes(g.id) ? prev.filter(x => x !== g.id) : [...prev, g.id])}
+                          className={`px-2.5 py-1 rounded text-xs transition-colors ${producerGenreIds.includes(g.id) ? 'bg-red-600 text-white' : 'bg-zinc-900 border border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+                          {g.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className={labelClass}>Past Work / Portfolio Links</label>
+                  <p className="text-xs text-zinc-600 mb-2">YouTube, SoundCloud, or other links to projects you&apos;ve worked on.</p>
+                  <div className="flex flex-col gap-2">
+                    {producerPortfolioLinks.map((link, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input type="url" value={link.url} onChange={e => {
+                          const next = [...producerPortfolioLinks]
+                          next[i] = { ...link, url: e.target.value }
+                          setProducerPortfolioLinks(next)
+                        }} className={inputClass + ' flex-1'} placeholder="https://..." />
+                        <input type="text" value={link.label || ''} onChange={e => {
+                          const next = [...producerPortfolioLinks]
+                          next[i] = { ...link, label: e.target.value || undefined }
+                          setProducerPortfolioLinks(next)
+                        }} className={inputClass + ' flex-1 min-w-0'} placeholder="Label (optional)" />
+                        <button type="button" onClick={() => setProducerPortfolioLinks(prev => prev.filter((_, j) => j !== i))}
+                          className="px-3 py-2 rounded-lg border border-zinc-700 text-zinc-500 hover:border-red-500 hover:text-red-400 text-xs shrink-0">
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setProducerPortfolioLinks(prev => [...prev, { url: '' }])}
+                      className="px-3 py-2 rounded-lg border border-dashed border-zinc-700 text-zinc-500 hover:border-red-500 hover:text-red-400 text-xs w-fit">
+                      + Add link
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 pt-1">
                   <button onClick={handleSaveProfile} disabled={savingProfile}
