@@ -466,7 +466,8 @@ export default function ProfileSettings() {
             </div>
           </div>
 
-          {/* ── Musician ───────────────────────────────────────────── */}
+          {/* ── Musician (only when musician selected) ───────────────── */}
+          {isMusician && (
           <div className="border border-zinc-800 rounded-xl p-6">
             <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-1">As a Musician</h2>
             <p className="text-xs text-zinc-600 mb-5">Shown on your public profile. Helps bands and collaborators find you.</p>
@@ -515,8 +516,9 @@ export default function ProfileSettings() {
               </div>
             </div>
           </div>
+          )}
 
-          {/* ── Producer / Engineer (conditional) ─────────────────── */}
+          {/* ── Producer / Engineer (only when producer or engineer selected) ─────────────────── */}
           {(isProducer || isSoundEngineer) && (
             <div className="border border-zinc-800 rounded-xl p-6">
               <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-1">
