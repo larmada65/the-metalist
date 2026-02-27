@@ -29,6 +29,12 @@ export default function MobileBottomNav() {
       style={{ background: '#000' }}
       aria-label="Mobile navigation"
     >
+      {/* Black bar below toolbar — Safari bar zone */}
+      <div
+        className="absolute left-0 right-0 top-full h-[calc(env(safe-area-inset-bottom)+5rem)] bg-black pointer-events-none"
+        style={{ background: '#000' }}
+        aria-hidden
+      />
       {links.map(({ href, label, icon }) => {
         const active = pathname === href || (href !== '/' && pathname.startsWith(href))
         return (

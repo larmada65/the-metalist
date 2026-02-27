@@ -19,18 +19,6 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
-/* Black fill from toolbar bottom to screen bottom (iOS Safari bar zone) */
-.mobile-bottom-black {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  height: calc(4.5rem + env(safe-area-inset-bottom, 0px) + 4rem);
-  background: #000000;
-  pointer-events: none;
-}
-
 /* Default body copy alignment */
 p {
   text-align: justify;
