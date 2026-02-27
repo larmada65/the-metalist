@@ -47,6 +47,11 @@ export default async function RootLayout({
               <div className="pb-28 md:pb-24">
                 {children}
               </div>
+              {/* Black fill from toolbar bottom to screen bottom — covers Safari bar zone */}
+              <div
+                className="mobile-bottom-black md:hidden"
+                aria-hidden
+              />
               <MobileBottomNav />
             </AudioPlayerProvider>
           </ToastProvider>

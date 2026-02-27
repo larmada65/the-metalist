@@ -25,7 +25,7 @@ export default function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-40 md:hidden border-t border-zinc-800 flex justify-around items-center py-2 bg-black [padding-bottom:max(0.5rem,env(safe-area-inset-bottom))] before:content-[''] before:absolute before:left-0 before:right-0 before:top-full before:h-[calc(env(safe-area-inset-bottom)+100dvh)] before:bg-black before:pointer-events-none"
+      className="fixed bottom-0 inset-x-0 z-40 md:hidden border-t border-zinc-800 flex justify-around items-center py-2 bg-black [padding-bottom:max(0.5rem,env(safe-area-inset-bottom))]"
       style={{ background: '#000' }}
       aria-label="Mobile navigation"
     >
