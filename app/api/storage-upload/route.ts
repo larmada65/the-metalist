@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       const msg = parseErr?.message || ''
       if (msg.includes('body') && msg.includes('limit') || msg.includes('size')) {
         return NextResponse.json(
-          { error: 'File too large. Maximum size is 25MB.' },
+          { error: 'File too large for this upload endpoint.' },
           { status: 413, headers: jsonHeaders }
         )
       }

@@ -273,10 +273,11 @@ export default function AddRelease() {
           const safeName = `${i + 1}-${slugify(t.title)}.${ext}`
           const path = `${AUDIO_PREFIX}/${bandId}/${finalReleaseId}/${safeName}`
 
-          try {
-            await uploadViaApi(t.audio_file, path, AUDIO_BUCKET)
-          } catch (e: any) {
-            setError('Failed to upload track: ' + (e?.message || 'Unknown error'))
+          const { error: upErr } = await supabase.storage
+            .from(AUDIO_BUCKET)
+            .upload(path, t.audio_file, { contentType: t.audio_file.type || 'audio/mpeg' })
+          if (upErr) {
+            setError('Failed to upload track: ' + upErr.message)
             setLoading(false)
             return
           }
@@ -449,7 +450,7 @@ export default function AddRelease() {
                     placeholder="https://youtube.com/watch?v=... or https://soundcloud.com/..." />
                   {isPro && (
                     <div>
-                      <label className="text-xs text-zinc-500 mb-1 block">Or upload MP3 (Pro)</label>
+                      <label className="text-xs text-zinc-500 mb-1 block">Or upload MP3 (Pro, max 25MB per file)</label>
                       <input
                         type="file"
                         accept="audio/mpeg,.mp3,audio/*"
