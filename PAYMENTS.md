@@ -33,6 +33,16 @@ To enable “Pay for hosted tracks” and pay-per-release MP3 billing:
    - Copy the **service_role** key (not the anon key) into `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.  
    - Keep this key secret; it bypasses RLS and is only used server-side (e.g. in the Stripe webhook).
 
-5. **Restart**
+5. **Optional: disable payments during beta**
+   - If you want to let bands upload hosted MP3s for free during an early beta, set:
+
+   ```bash
+   NEXT_PUBLIC_DISABLE_PAYMENTS=true
+   ```
+
+   - With this flag, the payments API will short-circuit and treat all hosted tracks as already paid (no Stripe checkout is started).
+   - Remove this flag when you are ready to charge per track.
+
+6. **Restart**
    - Restart the Next.js dev server so it picks up `.env.local`.
    - Try adding/editing a release with MP3s; you should see the payment flow and no “Payments are not configured.” when Stripe and `NEXT_PUBLIC_APP_URL` are set.

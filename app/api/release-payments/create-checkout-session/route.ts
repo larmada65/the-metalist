@@ -13,6 +13,18 @@ type Body = {
 };
 
 export async function POST(req: NextRequest) {
+  // Beta mode: optionally disable payments entirely so hosted tracks are free.
+  // When NEXT_PUBLIC_DISABLE_PAYMENTS === 'true', we short-circuit and pretend
+  // everything is already paid. Useful for early testing / closed betas.
+  if (process.env.NEXT_PUBLIC_DISABLE_PAYMENTS === 'true') {
+    return NextResponse.json({
+      checkoutUrl: null,
+      alreadyPaid: 0,
+      newBillable: 0,
+      amountCents: 0,
+    });
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
   const missing: string[] = []
   if (!stripe) missing.push('STRIPE_SECRET_KEY')
