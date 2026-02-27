@@ -994,9 +994,19 @@ export default function MemberProfileClient({ username }: { username: string }) 
                           src: publicUrl,
                         })
                       }}
-                      className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 hover:border-red-600 transition-colors"
+                      className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                        currentUser
+                          ? 'bg-zinc-900 border border-zinc-800 hover:border-red-600'
+                          : 'bg-zinc-900 border border-zinc-800 text-zinc-600 opacity-60 cursor-not-allowed'
+                      }`}
                     >
-                      <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className={`w-6 h-6 ${
+                          currentUser ? 'text-red-500' : 'text-zinc-600'
+                        }`}
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path d="M8 5v14l11-7z" />
                       </svg>
                     </button>

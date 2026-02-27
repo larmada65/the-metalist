@@ -862,11 +862,12 @@ export default function BandPageClient({ slug }: { slug: string }) {
 
                           const handleClick = () => {
                             const nextActive = isActive ? null : { releaseId: release.id, trackId: track.id }
-                            setActiveTrack(nextActive)
 
-                            if (!currentUser && hasHostedAudio) {
+                            if (hasHostedAudio && !currentUser) {
                               return
                             }
+
+                            setActiveTrack(nextActive)
 
                             if (hasHostedAudio && track.audio_path) {
                               const { data } = supabase.storage
@@ -900,7 +901,9 @@ export default function BandPageClient({ slug }: { slug: string }) {
                                     isPlayingHere
                                       ? 'border-red-600/80 bg-red-950/40 text-red-300'
                                       : hasHostedAudio
-                                        ? 'border-red-700/70 bg-red-950/20 text-red-300'
+                                        ? currentUser
+                                          ? 'border-red-700/70 bg-red-950/20 text-red-300'
+                                          : 'border-zinc-800 bg-zinc-950 text-zinc-500 opacity-70'
                                         : 'border-zinc-700 bg-zinc-950 text-zinc-300'
                                   }`}
                                 >
@@ -955,13 +958,17 @@ export default function BandPageClient({ slug }: { slug: string }) {
                                     </div>
                                   )}
                                 </div>
-                                <span className="text-xs text-zinc-600">
+                                <span
+                                  className={`text-xs ${
+                                    hasHostedAudio && !currentUser ? 'text-zinc-600 opacity-60' : 'text-zinc-600'
+                                  }`}
+                                >
                                   {hasHostedAudio ? 'MP3' : embed ? (embed.type === 'youtube' ? 'YT' : embed.type === 'soundcloud' ? 'SC' : '') : ''}
                                 </span>
                               </button>
                               {isActive && (
                                 <div className="px-4 pb-4">
-                                  {hasHostedAudio && track.audio_path && (
+                                  {currentUser && hasHostedAudio && track.audio_path && (
                                     <p className="text-xs text-zinc-500">
                                       Playing hosted audio in the bottom player.
                                     </p>
