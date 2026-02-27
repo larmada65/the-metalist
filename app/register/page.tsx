@@ -38,27 +38,21 @@ export default function Register() {
   const toggleGenre = (id: number) =>
     setGenreIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
-  // Show confirmation when selecting a role (adding, not removing)
-  const handleRoleClick = (
-    role: 'musician' | 'producer' | 'engineer' | 'fan',
-    isSelected: boolean,
-    setSelected: (v: boolean | ((prev: boolean) => boolean)) => void
-  ) => {
-    if (isSelected) {
-      setSelected(false) // deselect without confirmation
-      return
-    }
+  // Single-select: show confirmation when choosing a role (clicking a different one)
+  const handleRoleClick = (role: 'musician' | 'producer' | 'engineer' | 'fan') => {
+    const isCurrent = (role === 'musician' && isMusician) || (role === 'producer' && isProducer) ||
+      (role === 'engineer' && isSoundEngineer) || (role === 'fan' && isFan)
+    if (isCurrent) return // already selected, do nothing
     setRoleConfirmRole(role)
   }
 
   const confirmRoleChoice = () => {
     if (!roleConfirmRole) return
-    switch (roleConfirmRole) {
-      case 'musician': setIsMusician(true); break
-      case 'producer': setIsProducer(true); break
-      case 'engineer': setIsSoundEngineer(true); break
-      case 'fan': setIsFan(true); break
-    }
+    // Single-select: this is the main profile; clear all others
+    setIsMusician(roleConfirmRole === 'musician')
+    setIsProducer(roleConfirmRole === 'producer')
+    setIsSoundEngineer(roleConfirmRole === 'engineer')
+    setIsFan(roleConfirmRole === 'fan')
     setRoleConfirmRole(null)
   }
 
@@ -112,6 +106,7 @@ export default function Register() {
     }
 
     if (data.user) {
+      const primaryProfile = isProducer ? 'producer' : isSoundEngineer ? 'engineer' : isMusician ? 'musician' : isFan ? 'fan' : null
       const profilePayload = {
         id: data.user.id,
         username,
@@ -123,11 +118,18 @@ export default function Register() {
         is_sound_engineer: isSoundEngineer,
         is_musician: isMusician,
         is_fan: isFan,
+        primary_profile: primaryProfile,
       }
       const { error: profileError } = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' })
 
       if (profileError) {
-        localStorage.setItem('pending_profile', JSON.stringify(profilePayload))
+        // Fallback: retry without primary_profile (in case migration not yet run)
+        const fallbackPayload = { ...profilePayload }
+        delete (fallbackPayload as Record<string, unknown>).primary_profile
+        const { error: retryError } = await supabase.from('profiles').upsert(fallbackPayload, { onConflict: 'id' })
+        if (retryError) {
+          localStorage.setItem('pending_profile', JSON.stringify(profilePayload))
+        }
       }
     }
 
@@ -138,7 +140,7 @@ export default function Register() {
       return
     }
 
-    router.push('/dashboard')
+    router.push('/welcome')
   }
 
   const EyeIcon = ({ visible }: { visible: boolean }) => (
@@ -247,28 +249,31 @@ export default function Register() {
 
             <div>
               <label className="text-xs uppercase tracking-widest text-zinc-500 mb-1 block">
-                I am a… <span className="text-zinc-700 normal-case tracking-normal">(required — select all that apply)</span>
+                I am a… <span className="text-zinc-700 normal-case tracking-normal">(required — choose your main profile)</span>
               </label>
+              <p className="text-xs text-zinc-600 mb-2">
+                You pick one main profile now. You can add more roles later in profile settings — this choice will define your experience.
+              </p>
               <div className="flex flex-wrap gap-2 mt-2">
-                <button type="button" onClick={() => handleRoleClick('musician', isMusician, setIsMusician)}
+                <button type="button" onClick={() => handleRoleClick('musician')}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isMusician ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                   }`}>
                   🎸 Musician
                 </button>
-                <button type="button" onClick={() => handleRoleClick('producer', isProducer, setIsProducer)}
+                <button type="button" onClick={() => handleRoleClick('producer')}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isProducer ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                   }`}>
                   🎚 Producer
                 </button>
-                <button type="button" onClick={() => handleRoleClick('engineer', isSoundEngineer, setIsSoundEngineer)}
+                <button type="button" onClick={() => handleRoleClick('engineer')}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isSoundEngineer ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                   }`}>
                   🔊 Sound Engineer
                 </button>
-                <button type="button" onClick={() => handleRoleClick('fan', isFan, setIsFan)}
+                <button type="button" onClick={() => handleRoleClick('fan')}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isFan ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                   }`}>

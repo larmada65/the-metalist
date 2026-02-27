@@ -141,8 +141,8 @@ export default function MemberProfileClient({ username }: { username: string }) 
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links')
-        .eq('username', username)
-        .single()
+        .ilike('username', username)
+        .maybeSingle()
 
       if (!profileData) { setNotFound(true); setLoading(false); return }
       setProfile(profileData)

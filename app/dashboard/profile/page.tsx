@@ -54,6 +54,7 @@ export default function ProfileSettings() {
   const [producerBassPlugins, setProducerBassPlugins] = useState('')
   const [producerGenreIds, setProducerGenreIds] = useState<number[]>([])
   const [producerPortfolioLinks, setProducerPortfolioLinks] = useState<{ url: string; label?: string }[]>([])
+  const [primaryProfile, setPrimaryProfile] = useState<string | null>(null)
 
   // Save / password state
   const [savingProfile, setSavingProfile] = useState(false)
@@ -80,7 +81,7 @@ export default function ProfileSettings() {
 
       const [{ data: profile }, { data: genreData }] = await Promise.all([
         supabase.from('profiles')
-          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links')
+          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links, primary_profile')
           .eq('id', user.id).single(),
         supabase.from('genres_list').select('id, name').order('name'),
       ])
@@ -111,6 +112,7 @@ export default function ProfileSettings() {
         setProducerBassPlugins(profile.producer_bass_plugins || '')
         setProducerGenreIds(profile.producer_genre_ids || [])
         setProducerPortfolioLinks(Array.isArray(profile.producer_portfolio_links) ? profile.producer_portfolio_links : [])
+        setPrimaryProfile(profile.primary_profile || null)
       }
       if (genreData) setAllGenres(genreData)
       setLoading(false)
@@ -355,7 +357,16 @@ export default function ProfileSettings() {
               {/* Roles */}
               <div>
                 <label className={labelClass}>Roles / Skills</label>
-                <p className="text-xs text-zinc-600 mb-3">Check what applies — shown on your profile at signup and here.</p>
+                {primaryProfile && (
+                  <p className="text-xs text-zinc-500 mb-2">
+                    Your primary profile (first choice at signup) is{' '}
+                    <span className="text-zinc-400 font-medium uppercase">
+                      {primaryProfile === 'musician' ? 'Musician' : primaryProfile === 'producer' ? 'Producer' : primaryProfile === 'engineer' ? 'Sound Engineer' : 'Fan'}
+                    </span>.
+                    Add more roles below if you like.
+                  </p>
+                )}
+                <p className="text-xs text-zinc-600 mb-3">Check what applies — shown on your profile.</p>
                 <div className="flex gap-3 flex-wrap">
                   <button type="button" onClick={() => setIsMusician(v => !v)}
                     className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${isMusician ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>

@@ -6,7 +6,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 async function fetchProfileMeta(username: string) {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=username,first_name,last_name,bio`,
+    `${SUPABASE_URL}/rest/v1/profiles?username=ilike.${encodeURIComponent(username)}&select=username,first_name,last_name,bio`,
     {
       headers: {
         apikey: SUPABASE_ANON_KEY,

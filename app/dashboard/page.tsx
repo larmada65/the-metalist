@@ -65,6 +65,7 @@ export default function Dashboard() {
     is_musician: boolean | null
     is_fan: boolean | null
     genre_ids: number[] | null
+    primary_profile: string | null
   } | null>(null)
   const [bandsWithShows, setBandsWithShows] = useState<string[]>([])
   const [bandsWithInfluences, setBandsWithInfluences] = useState<string[]>([])
@@ -80,7 +81,7 @@ export default function Dashboard() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username, first_name, last_name, avatar_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids')
+        .select('username, first_name, last_name, avatar_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, primary_profile')
         .eq('id', user.id)
         .single()
       if (profile) {
@@ -94,6 +95,7 @@ export default function Dashboard() {
           is_musician: profile.is_musician ?? null,
           is_fan: profile.is_fan ?? null,
           genre_ids: profile.genre_ids ?? null,
+          primary_profile: profile.primary_profile ?? null,
         })
       }
 
@@ -306,17 +308,42 @@ export default function Dashboard() {
         )}
 
         {memberships.length === 0 ? (
-          <div className="border border-zinc-800 rounded-xl p-16 text-center">
-            <p className="text-5xl mb-5">🎸</p>
-            <h2 className="text-xl font-black uppercase tracking-wide mb-3">No bands yet</h2>
-            <p className="text-zinc-500 text-sm mb-8 max-w-sm mx-auto">
-              Create your own band or request to join an existing one.
-            </p>
-            <Link href="/dashboard/create-band"
-              className="inline-block bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-widest px-8 py-3 rounded-lg transition-colors">
-              Create Band
-            </Link>
-          </div>
+          (() => {
+            const primary = profileBasics?.primary_profile
+            const isProducerOrEngineer = primary === 'producer' || primary === 'engineer' || (!primary && (profileBasics?.is_producer || profileBasics?.is_sound_engineer))
+            return (
+              <div className="border border-zinc-800 rounded-xl p-16 text-center">
+                <p className="text-5xl mb-5">{isProducerOrEngineer ? '🎚' : '🎸'}</p>
+                <h2 className="text-xl font-black uppercase tracking-wide mb-3">
+                  {isProducerOrEngineer ? 'Explore the community' : 'No bands yet'}
+                </h2>
+                <p className="text-zinc-500 text-sm mb-8 max-w-sm mx-auto">
+                  {isProducerOrEngineer
+                    ? 'Explore bands and demos from musicians looking for producers and engineers.'
+                    : 'Create your own band or request to join an existing one.'}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  {isProducerOrEngineer ? (
+                    <>
+                      <Link href="/explore"
+                        className="inline-block bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-widest px-8 py-3 rounded-lg transition-colors">
+                        Explore Bands
+                      </Link>
+                      <Link href="/demos"
+                        className="inline-block border border-zinc-700 hover:border-red-500 text-zinc-300 hover:text-white font-bold uppercase tracking-widest px-8 py-3 rounded-lg transition-colors">
+                        Explore Demos
+                      </Link>
+                    </>
+                  ) : (
+                    <Link href="/dashboard/create-band"
+                      className="inline-block bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-widest px-8 py-3 rounded-lg transition-colors">
+                      Create Band
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )
+          })()
         ) : (
           <div className="flex flex-col gap-10">
 

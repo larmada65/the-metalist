@@ -22,8 +22,8 @@ export default function Login() {
     const { data: profile } = await supabase
       .from('profiles')
       .select('email')
-      .eq('username', username)
-      .single()
+      .ilike('username', username.trim())
+      .maybeSingle()
 
     if (!profile?.email) {
       setError('Username not found.')
