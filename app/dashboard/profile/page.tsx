@@ -13,6 +13,11 @@ const INSTRUMENTS = [
 ]
 const MUSICIAN_LEVELS = ['Just starting out', 'Intermediate', 'Advanced', 'Session / Professional']
 const PRODUCTION_LEVELS = ['Home studio / Hobbyist', 'Semi-professional', 'Professional / Commercial']
+const PRODUCER_AVAILABILITY = [
+  { value: 'open', label: 'Open for projects' },
+  { value: 'limited', label: 'Limited capacity' },
+  { value: 'booked', label: 'Currently booked' },
+]
 
 export default function ProfileSettings() {
   const [loading, setLoading] = useState(true)
@@ -54,6 +59,8 @@ export default function ProfileSettings() {
   const [producerBassPlugins, setProducerBassPlugins] = useState('')
   const [producerGenreIds, setProducerGenreIds] = useState<number[]>([])
   const [producerPortfolioLinks, setProducerPortfolioLinks] = useState<{ url: string; label?: string }[]>([])
+  const [producerSpecialization, setProducerSpecialization] = useState('')
+  const [producerAvailability, setProducerAvailability] = useState<string>('')
   const [primaryProfile, setPrimaryProfile] = useState<string | null>(null)
 
   // Save / password state
@@ -81,7 +88,7 @@ export default function ProfileSettings() {
 
       const [{ data: profile }, { data: genreData }] = await Promise.all([
         supabase.from('profiles')
-          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links, primary_profile')
+          .select('first_name, last_name, username, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, genre_ids, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links, producer_specialization, producer_availability, primary_profile')
           .eq('id', user.id).single(),
         supabase.from('genres_list').select('id, name').order('name'),
       ])
@@ -112,6 +119,8 @@ export default function ProfileSettings() {
         setProducerBassPlugins(profile.producer_bass_plugins || '')
         setProducerGenreIds(profile.producer_genre_ids || [])
         setProducerPortfolioLinks(Array.isArray(profile.producer_portfolio_links) ? profile.producer_portfolio_links : [])
+        setProducerSpecialization(profile.producer_specialization || '')
+        setProducerAvailability(profile.producer_availability || '')
         setPrimaryProfile(profile.primary_profile || null)
       }
       if (genreData) setAllGenres(genreData)
@@ -208,6 +217,9 @@ export default function ProfileSettings() {
           const valid = producerPortfolioLinks.filter(l => l.url?.trim())
           return valid.length > 0 ? valid.map(l => ({ url: l.url.trim(), label: l.label?.trim() || undefined })) : null
         })(),
+        producer_specialization: producerSpecialization.trim() || null,
+        producer_availability: producerAvailability || null,
+        primary_profile: (isProducer || isSoundEngineer) && isMusician ? (primaryProfile || 'producer') : null,
       })
       .eq('id', userId)
 
@@ -357,15 +369,6 @@ export default function ProfileSettings() {
               {/* Roles */}
               <div>
                 <label className={labelClass}>Roles / Skills</label>
-                {primaryProfile && (
-                  <p className="text-xs text-zinc-500 mb-2">
-                    Your primary profile (first choice at signup) is{' '}
-                    <span className="text-zinc-400 font-medium uppercase">
-                      {primaryProfile === 'musician' ? 'Musician' : primaryProfile === 'producer' ? 'Producer' : primaryProfile === 'engineer' ? 'Sound Engineer' : 'Fan'}
-                    </span>.
-                    Add more roles below if you like.
-                  </p>
-                )}
                 <p className="text-xs text-zinc-600 mb-3">Check what applies — shown on your profile.</p>
                 <div className="flex gap-3 flex-wrap">
                   <button type="button" onClick={() => setIsMusician(v => !v)}
@@ -385,6 +388,39 @@ export default function ProfileSettings() {
                     🎧 Fan
                   </button>
                 </div>
+                {/* Primary profile (only when both producer and musician) */}
+                {(isProducer || isSoundEngineer) && isMusician && (
+                  <div className="mt-5 pt-5 border-t border-zinc-800">
+                    <label className={labelClass}>How should people see you?</label>
+                    <p className="text-xs text-zinc-600 mb-3">
+                      You&apos;ve selected both producer and musician. Choose which identity leads on your profile.
+                    </p>
+                    <div className="flex gap-3 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setPrimaryProfile('producer')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${
+                          primaryProfile === 'producer'
+                            ? 'bg-red-600 border-red-600 text-white'
+                            : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                        }`}
+                      >
+                        🎚 As a Producer first
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPrimaryProfile('musician')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${
+                          primaryProfile === 'musician'
+                            ? 'bg-amber-600 border-amber-600 text-white'
+                            : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                        }`}
+                      >
+                        🎸 As a Musician first
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Genre preferences */}
@@ -494,10 +530,48 @@ export default function ProfileSettings() {
                   </div>
                 </div>
                 <div>
+                  <label className={labelClass}>Availability</label>
+                  <p className="text-xs text-zinc-600 mb-2">Let bands know if you&apos;re open for new work.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRODUCER_AVAILABILITY.map(({ value, label }) => (
+                      <button key={value} type="button" onClick={() => setProducerAvailability(prev => prev === value ? '' : value)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                          producerAvailability === value
+                            ? 'bg-red-600 border-red-600 text-white'
+                            : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                        }`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
                   <label className={labelClass}>Software Used</label>
                   <input type="text" value={producerSoftware} onChange={e => setProducerSoftware(e.target.value)}
                     className={inputClass}
                     placeholder="e.g. Pro Tools, Logic Pro, Reaper, Cubase..." />
+                </div>
+                {allGenres.length > 0 && (
+                  <div>
+                    <label className={labelClass}>Genres I&apos;m Open to Work On</label>
+                    <p className="text-xs text-zinc-600 mb-2">Genres you&apos;re interested in producing or engineering for.</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {allGenres.map(g => (
+                        <button key={g.id} type="button"
+                          onClick={() => setProducerGenreIds(prev => prev.includes(g.id) ? prev.filter(x => x !== g.id) : [...prev, g.id])}
+                          className={`px-2.5 py-1 rounded text-xs transition-colors ${producerGenreIds.includes(g.id) ? 'bg-red-600 text-white' : 'bg-zinc-900 border border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+                          {g.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className={labelClass}>Specialization</label>
+                  <input type="text" value={producerSpecialization} onChange={e => setProducerSpecialization(e.target.value)}
+                    className={inputClass}
+                    placeholder='e.g. Raw black metal, Modern death metal, Symphonic...' />
+                  <p className="text-xs text-zinc-600 mt-1">Genres or styles you specialize in or love working on.</p>
                 </div>
                 <div>
                   <label className={labelClass}>Guitar Plugins</label>
@@ -524,21 +598,6 @@ export default function ProfileSettings() {
                     placeholder="e.g. SSL console, UAD plugins, Neve 1073s, outboard gear..." />
                   <p className="text-xs text-zinc-700 mt-1">{studioGear.length}/500</p>
                 </div>
-                {allGenres.length > 0 && (
-                  <div>
-                    <label className={labelClass}>Genres I&apos;m Open to Work On</label>
-                    <p className="text-xs text-zinc-600 mb-2">Genres you&apos;re interested in producing or engineering for.</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {allGenres.map(g => (
-                        <button key={g.id} type="button"
-                          onClick={() => setProducerGenreIds(prev => prev.includes(g.id) ? prev.filter(x => x !== g.id) : [...prev, g.id])}
-                          className={`px-2.5 py-1 rounded text-xs transition-colors ${producerGenreIds.includes(g.id) ? 'bg-red-600 text-white' : 'bg-zinc-900 border border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
-                          {g.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <div>
                   <label className={labelClass}>Past Work / Portfolio Links</label>
                   <p className="text-xs text-zinc-600 mb-2">YouTube, SoundCloud, or other links to projects you&apos;ve worked on.</p>
