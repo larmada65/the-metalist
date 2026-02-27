@@ -167,14 +167,15 @@ export default function MemberProfileClient({ username }: { username: string }) 
         .ilike('username', qUsername)
         .maybeSingle()
 
-      let profileData = profileData1
+      type ProfileRow = Record<string, unknown> | null
+      let profileData: ProfileRow = profileData1 as ProfileRow
       if (err1 || !profileData1) {
         const { data: fallback } = await supabase
           .from('profiles')
           .select(coreCols)
           .ilike('username', qUsername)
           .maybeSingle()
-        profileData = fallback
+        profileData = fallback as ProfileRow
       }
 
       if (!profileData && user) {
@@ -205,7 +206,7 @@ export default function MemberProfileClient({ username }: { username: string }) 
         producer_specialization: (typeof pData.producer_specialization === 'string' ? pData.producer_specialization : null) as string | null,
         producer_availability: (typeof pData.producer_availability === 'string' ? pData.producer_availability : null) as string | null,
         primary_profile: (typeof pData.primary_profile === 'string' ? pData.primary_profile : null) as string | null,
-      }
+      } as Profile
       setProfile(fullProfile)
 
       const [
