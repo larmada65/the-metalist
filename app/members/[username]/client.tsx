@@ -130,6 +130,7 @@ export default function MemberProfileClient({ username }: { username: string }) 
   const [deleteDemoId, setDeleteDemoId] = useState<string | null>(null)
   const [deleteDemoLoading, setDeleteDemoLoading] = useState(false)
   const [genresList, setGenresList] = useState<Genre[]>([])
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
   const supabase = createClient()
   const { setTrackAndPlay } = useAudioPlayer()
 
@@ -138,27 +139,51 @@ export default function MemberProfileClient({ username }: { username: string }) 
       const { data: { user } } = await supabase.auth.getUser()
       if (user) setCurrentUser(user.id)
 
+      // DEBUG: remove after fixing member not found
+      const debugLines: string[] = []
+      const debug = (msg: string, obj?: unknown) => {
+        const line = obj !== undefined ? `${msg}: ${JSON.stringify(obj)}` : msg
+        debugLines.push(line)
+        if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+          console.log(`[MemberProfile] ${line}`)
+        }
+      }
+      const qUsername = username.trim()
+      debug('Fetching profile', { username: qUsername, hasAuth: !!user, authId: user?.id })
+
       const selectCols = 'id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links'
 
-      let profileData = (await supabase
+      const usernameQuery = await supabase
         .from('profiles')
         .select(selectCols)
-        .ilike('username', username.trim())
-        .maybeSingle()).data
+        .ilike('username', qUsername)
+        .maybeSingle()
+
+      debug('Username query result', { data: usernameQuery.data, error: usernameQuery.error, status: (usernameQuery as { status?: number }).status })
+
+      let profileData = usernameQuery.data
 
       // Fallback: if viewing own profile, fetch by id (RLS may allow id-based read but block username-based)
       if (!profileData && user) {
-        const { data: ownProfile } = await supabase
+        debug('Username query returned nothing, trying fallback fetch by id')
+        const { data: ownProfile, error: ownError } = await supabase
           .from('profiles')
           .select(selectCols)
           .eq('id', user.id)
           .single()
-        if (ownProfile && ownProfile.username?.toLowerCase() === username.trim().toLowerCase()) {
+        debug('Fallback by-id result', { data: ownProfile, error: ownError, usernameMatch: ownProfile?.username?.toLowerCase() === qUsername.toLowerCase() })
+        if (ownProfile && ownProfile.username?.toLowerCase() === qUsername.toLowerCase()) {
           profileData = ownProfile
         }
       }
 
-      if (!profileData) { setNotFound(true); setLoading(false); return }
+      if (!profileData) {
+        debug('No profile found, showing Member not found')
+        setDebugInfo(debugLines.join('\n'))
+        setNotFound(true)
+        setLoading(false)
+        return
+      }
       setProfile(profileData)
 
       const [
@@ -519,8 +544,13 @@ export default function MemberProfileClient({ username }: { username: string }) 
   )
 
   if (notFound) return (
-    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4">
+    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4 px-6">
       <p className="text-zinc-500 text-xl">Member not found.</p>
+      {debugInfo && process.env.NODE_ENV === 'development' && (
+        <pre className="w-full max-w-2xl p-4 mt-4 text-left text-xs text-zinc-500 bg-zinc-900 rounded-lg overflow-auto max-h-48">
+          {debugInfo}
+        </pre>
+      )}
       <Link href="/explore" className="text-red-500 hover:text-red-400 text-sm">← Back to explore</Link>
     </main>
   )
