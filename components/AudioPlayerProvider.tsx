@@ -177,7 +177,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       {children}
 
       {currentTrack && (
-        <div className="fixed inset-x-0 bottom-0 z-40 bg-black">
+        <div
+          className="fixed inset-x-0 z-40 bg-black"
+          style={{ bottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           <div className="mx-auto max-w-5xl px-3 pb-2 md:px-6 md:pb-4">
             <div className="rounded-t-xl bg-zinc-950/95 border border-zinc-800/90 shadow-2xl shadow-black/60 backdrop-blur-md">
               <div className="flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3">

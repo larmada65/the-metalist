@@ -25,17 +25,10 @@ export default function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 md:hidden border-t border-zinc-800 flex justify-around items-center py-2 bg-black [padding-bottom:max(0.5rem,env(safe-area-inset-bottom))]"
+      className="fixed inset-x-0 z-50 md:hidden border-t border-zinc-800 flex justify-around items-center py-2 bg-black"
+      style={{ bottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label="Mobile navigation"
     >
-      {/* Over-extended black area *below* the nav, so the entire zone
-          under the bar (including the iOS home pill) is pure black. */}
-      <div
-        className="pointer-events-none absolute left-0 right-0 top-full bg-black"
-        style={{ height: '50vh' }}
-        aria-hidden
-      />
-
       {links.map(({ href, label, icon }) => {
         const active = pathname === href || (href !== '/' && pathname.startsWith(href))
         return (
