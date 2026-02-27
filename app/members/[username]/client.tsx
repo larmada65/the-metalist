@@ -565,8 +565,35 @@ export default function MemberProfileClient({ username }: { username: string }) 
   }
 
   if (loading) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <p className="text-zinc-600 animate-pulse">Loading...</p>
+    <main className="min-h-screen bg-black text-white">
+      <GlobalNav backHref="/explore" backLabel="Bands" />
+      <div className="max-w-2xl mx-auto px-6 py-16">
+        <div className="flex items-start gap-6 mb-8">
+          <div className="w-20 h-20 rounded-2xl bg-zinc-900 animate-pulse shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-8 w-48 bg-zinc-900 rounded animate-pulse" />
+            <div className="h-4 w-24 bg-zinc-900 rounded animate-pulse" />
+            <div className="h-3 w-32 bg-zinc-900 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="flex gap-6 mb-8">
+          <div className="h-6 w-16 bg-zinc-900 rounded animate-pulse" />
+          <div className="h-6 w-16 bg-zinc-900 rounded animate-pulse" />
+        </div>
+        <div className="border border-zinc-800 rounded-xl p-6 mb-6 space-y-4">
+          <div className="h-4 w-20 bg-zinc-800 rounded animate-pulse" />
+          <div className="h-16 w-full bg-zinc-900 rounded-lg animate-pulse" />
+          <div className="h-16 w-full bg-zinc-900 rounded-lg animate-pulse" />
+        </div>
+        <div className="border border-zinc-800 rounded-xl p-6 space-y-4">
+          <div className="h-4 w-24 bg-zinc-800 rounded animate-pulse" />
+          <div className="grid grid-cols-3 gap-2">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="h-10 bg-zinc-900 rounded animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
     </main>
   )
 
@@ -620,14 +647,14 @@ export default function MemberProfileClient({ username }: { username: string }) 
                 </span>
               )}
               {p.is_producer && (
-                <span className="text-xs px-2 py-0.5 rounded border border-red-900/50 bg-red-950/30 text-red-400 uppercase tracking-widest font-medium">
+                <Link href="/prod-engineers" className="text-xs px-2 py-0.5 rounded border border-red-900/50 bg-red-950/30 text-red-400 uppercase tracking-widest font-medium hover:border-red-700 hover:text-red-300 transition-colors">
                   Producer
-                </span>
+                </Link>
               )}
               {p.is_sound_engineer && (
-                <span className="text-xs px-2 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-zinc-400 uppercase tracking-widest font-medium">
+                <Link href="/prod-engineers" className="text-xs px-2 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-zinc-400 uppercase tracking-widest font-medium hover:border-zinc-600 hover:text-zinc-300 transition-colors">
                   Sound Engineer
-                </span>
+                </Link>
               )}
               {p.is_musician && (
                 <span className="text-xs px-2 py-0.5 rounded border border-amber-900/50 bg-amber-950/30 text-amber-400 uppercase tracking-widest font-medium">
@@ -643,6 +670,11 @@ export default function MemberProfileClient({ username }: { username: string }) 
             <p className="text-zinc-700 text-xs mt-1 uppercase tracking-widest">
               Member since {joinedDate}
             </p>
+            {(p.is_producer || p.is_sound_engineer) && p.is_musician && p.primary_profile && (
+              <p className="text-zinc-600 text-[11px] mt-1.5 uppercase tracking-widest italic">
+                Shown as {p.primary_profile === 'musician' ? 'musician' : 'producer'} first
+              </p>
+            )}
             {allInstruments.length > 0 && (
               <p className="text-zinc-500 text-xs mt-2">
                 {allInstruments.map(inst => `${INSTRUMENT_EMOJI[inst] || '🎵'} ${inst}`).join(' · ')}

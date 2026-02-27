@@ -1,11 +1,25 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GlobalNav from '../../../components/GlobalNav'
 
 type Genre = { id: number; name: string }
+
+// Validation helpers
+const USERNAME_REGEX = /^[a-z0-9_]*$/
+function isValidUsername(s: string): boolean {
+  if (!s.trim()) return false
+  return USERNAME_REGEX.test(s.toLowerCase()) && s.length <= 30
+}
+function isValidUrl(s: string): boolean {
+  if (!s.trim()) return true
+  try {
+    new URL(s.trim().startsWith('http') ? s.trim() : `https://${s.trim()}`)
+    return true
+  } catch { return false }
+}
 
 const INSTRUMENTS = [
   'Vocals', 'Guitar', 'Bass', 'Drums', 'Keyboards',
@@ -66,6 +80,7 @@ export default function ProfileSettings() {
   // Save / password state
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSuccess, setProfileSuccess] = useState(false)
+  const [autoSavedAt, setAutoSavedAt] = useState<number | null>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -78,6 +93,9 @@ export default function ProfileSettings() {
 
   const supabase = createClient()
   const router = useRouter()
+  const initialLoadDone = useRef(false)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSavedRef = useRef<string>('')
 
   useEffect(() => {
     const load = async () => {
@@ -134,10 +152,49 @@ export default function ProfileSettings() {
         setProducerAvailability(String(p.producer_availability ?? ''))
         setPrimaryProfile(typeof p.primary_profile === 'string' ? p.primary_profile : null)
       }
+      initialLoadDone.current = true
       setLoading(false)
     }
     load()
   }, [])
+
+  // Debounced auto-save (2.5s after edits stop; skip if avatar pending)
+  const firstRunAfterLoad = useRef(true)
+  useEffect(() => {
+    if (!initialLoadDone.current || !userId) return
+    const snapshot = JSON.stringify({ firstName, lastName, username, bio, instagramUrl, twitterUrl, websiteUrl, isProducer, isSoundEngineer, isMusician, isFan, genreIds, musicianInstruments, musicianLevel, musicianLink, productionLevel, studioGear, producerSoftware, producerGuitarPlugins, producerDrumPlugins, producerBassPlugins, producerGenreIds, producerPortfolioLinks, producerSpecialization, producerAvailability, primaryProfile })
+    if (firstRunAfterLoad.current) {
+      firstRunAfterLoad.current = false
+      lastSavedRef.current = snapshot
+      return
+    }
+    if (snapshot === lastSavedRef.current) return
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      debounceTimer.current = null
+      if (!avatarFile) {
+        handleSaveProfile().then(() => {
+          lastSavedRef.current = snapshot
+          setAutoSavedAt(Date.now())
+          setTimeout(() => setAutoSavedAt(null), 2500)
+        })
+      }
+    }, 2500)
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }
+  }, [firstName, lastName, username, bio, instagramUrl, twitterUrl, websiteUrl, isProducer, isSoundEngineer, isMusician, isFan, genreIds, musicianInstruments, musicianLevel, musicianLink, productionLevel, studioGear, producerSoftware, producerGuitarPlugins, producerDrumPlugins, producerBassPlugins, producerGenreIds, producerPortfolioLinks, producerSpecialization, producerAvailability, primaryProfile, avatarFile, userId])
+
+  // Unsaved changes: warn before leaving (tab close / refresh)
+  const formSnapshot = JSON.stringify({ firstName, lastName, username, bio, instagramUrl, twitterUrl, websiteUrl, isProducer, isSoundEngineer, isMusician, isFan, genreIds, musicianInstruments, musicianLevel, musicianLink, productionLevel, studioGear, producerSoftware, producerGuitarPlugins, producerDrumPlugins, producerBassPlugins, producerGenreIds, producerPortfolioLinks, producerSpecialization, producerAvailability, primaryProfile })
+  const isDirty = initialLoadDone.current && formSnapshot !== lastSavedRef.current
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (avatarFile || isDirty) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [avatarFile, isDirty])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -156,6 +213,30 @@ export default function ProfileSettings() {
     if (!userId) return
     setSavingProfile(true)
     setProfileError(null)
+
+    // Form validation
+    if (username.trim() && !isValidUsername(username)) {
+      setProfileError('Username can only use letters, numbers, and underscores (max 30 chars).')
+      setSavingProfile(false)
+      return
+    }
+    for (const [label, url] of [
+      ['Instagram', instagramUrl],
+      ['Twitter', twitterUrl],
+      ['Website', websiteUrl],
+      ['Demo link', musicianLink],
+    ] as const) {
+      if (url.trim() && !isValidUrl(url)) {
+        setProfileError(`Please enter a valid ${label} URL.`)
+        setSavingProfile(false)
+        return
+      }
+    }
+    if (producerPortfolioLinks.some(l => l.url?.trim() && !isValidUrl(l.url))) {
+      setProfileError('Please enter valid URLs for portfolio links.')
+      setSavingProfile(false)
+      return
+    }
 
     let newAvatarUrl = avatarUrl
     if (avatarFile) {
@@ -284,8 +365,31 @@ export default function ProfileSettings() {
   const labelClass = 'text-xs uppercase tracking-widest text-zinc-500 mb-2 block'
 
   if (loading) return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <p className="text-zinc-600 animate-pulse">Loading...</p>
+    <main className="min-h-screen bg-black text-white">
+      <GlobalNav backHref="/dashboard" backLabel="Back to dashboard" />
+      <div className="max-w-xl mx-auto px-6 py-16">
+        <div className="h-10 w-64 bg-zinc-900 rounded-lg animate-pulse mb-12" />
+        <div className="flex flex-col gap-6">
+          <div className="border border-zinc-800 rounded-xl p-6 space-y-4">
+            <div className="h-4 w-24 bg-zinc-800 rounded animate-pulse" />
+            <div className="h-12 w-full bg-zinc-900 rounded-lg animate-pulse" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="h-12 bg-zinc-900 rounded-lg animate-pulse" />
+              <div className="h-12 bg-zinc-900 rounded-lg animate-pulse" />
+            </div>
+            <div className="h-12 w-full bg-zinc-900 rounded-lg animate-pulse" />
+            <div className="h-24 w-full bg-zinc-900 rounded-lg animate-pulse" />
+          </div>
+          <div className="border border-zinc-800 rounded-xl p-6 space-y-4">
+            <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse" />
+            <div className="flex gap-2 flex-wrap">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="h-8 w-20 bg-zinc-900 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
   )
 
@@ -355,7 +459,8 @@ export default function ProfileSettings() {
               </div>
               <div>
                 <label className={labelClass}>Username</label>
-                <input type="text" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} placeholder="username" />
+                <input type="text" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} placeholder="username" maxLength={30} />
+                <p className="text-xs text-zinc-600 mt-1">Letters, numbers, underscores only (max 30)</p>
               </div>
               <div>
                 <label className={labelClass}>Bio</label>
@@ -403,30 +508,32 @@ export default function ProfileSettings() {
                   <div className="mt-5 pt-5 border-t border-zinc-800">
                     <label className={labelClass}>How should people see you?</label>
                     <p className="text-xs text-zinc-600 mb-3">
-                      You&apos;ve selected both producer and musician. Choose which identity leads on your profile.
+                      You&apos;ve selected both producer and musician. Choose which identity leads on your profile — that section appears first when people visit.
                     </p>
                     <div className="flex gap-3 flex-wrap">
                       <button
                         type="button"
                         onClick={() => setPrimaryProfile('producer')}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${
+                        className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all border flex items-center gap-2 ${
                           primaryProfile === 'producer'
-                            ? 'bg-red-600 border-red-600 text-white'
+                            ? 'bg-red-600 border-red-600 text-white shadow-sm shadow-red-900/30'
                             : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                         }`}
                       >
-                        🎚 As a Producer first
+                        <span className="text-sm">🎚</span>
+                        As a Producer first
                       </button>
                       <button
                         type="button"
                         onClick={() => setPrimaryProfile('musician')}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border ${
+                        className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all border flex items-center gap-2 ${
                           primaryProfile === 'musician'
-                            ? 'bg-amber-600 border-amber-600 text-white'
+                            ? 'bg-amber-600 border-amber-600 text-white shadow-sm shadow-amber-900/30'
                             : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'
                         }`}
                       >
-                        🎸 As a Musician first
+                        <span className="text-sm">🎸</span>
+                        As a Musician first
                       </button>
                     </div>
                   </div>
@@ -460,7 +567,8 @@ export default function ProfileSettings() {
                   className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-700 text-white font-bold uppercase tracking-widest px-6 py-2.5 rounded-lg text-xs transition-colors">
                   {savingProfile ? 'Saving...' : 'Save Profile'}
                 </button>
-                {profileSuccess && <p className="text-green-400 text-xs">Profile updated!</p>}
+                {autoSavedAt && <p className="text-green-500/80 text-xs">Auto-saved</p>}
+                {profileSuccess && !autoSavedAt && <p className="text-green-400 text-xs">Profile updated!</p>}
                 {profileError && <p className="text-red-400 text-xs">{profileError}</p>}
               </div>
             </div>
