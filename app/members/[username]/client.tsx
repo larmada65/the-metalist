@@ -185,7 +185,17 @@ export default function MemberProfileClient({ username }: { username: string }) 
         setLoading(false)
         return
       }
-      setProfile(profileData)
+      // Ensure Profile shape (producer_* may be absent if migration 008 not run)
+      const fullProfile: Profile = {
+        ...profileData,
+        producer_software: (profileData as Record<string, unknown>).producer_software ?? null,
+        producer_guitar_plugins: (profileData as Record<string, unknown>).producer_guitar_plugins ?? null,
+        producer_drum_plugins: (profileData as Record<string, unknown>).producer_drum_plugins ?? null,
+        producer_bass_plugins: (profileData as Record<string, unknown>).producer_bass_plugins ?? null,
+        producer_genre_ids: (profileData as Record<string, unknown>).producer_genre_ids ?? null,
+        producer_portfolio_links: (profileData as Record<string, unknown>).producer_portfolio_links ?? null,
+      }
+      setProfile(fullProfile)
 
       const [
         { data: membershipData },
