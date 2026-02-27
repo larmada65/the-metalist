@@ -66,17 +66,32 @@ export default function ProdEngineersPage() {
 
   if (!loading && !isMusician) {
     return (
-      <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4 px-6">
-        <GlobalNav />
-        <p className="text-zinc-500 text-center">The Prod/Engineers tab is for musicians looking for producers and sound engineers.</p>
-        <Link href="/dashboard/profile" className="text-red-500 hover:text-red-400 text-sm">Update your profile</Link>
+      <main className="min-h-screen bg-black text-white">
+        <GlobalNav backHref="/explore" backLabel="Bands" />
+        <div className="max-w-2xl mx-auto px-6 py-16">
+          <div className="border border-zinc-800 rounded-xl p-12 text-center">
+            <p className="text-5xl mb-6">🎚</p>
+            <h1 className="text-xl font-black uppercase tracking-tight text-zinc-300 mb-3">
+              Prod / Engineers
+            </h1>
+            <p className="text-zinc-500 text-sm mb-6 max-w-md mx-auto">
+              The Prod/Engineers tab is for musicians looking for producers and sound engineers.
+            </p>
+            <Link
+              href="/dashboard/profile"
+              className="inline-block px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-red-500 hover:text-white transition-colors"
+            >
+              Update your profile
+            </Link>
+          </div>
+        </div>
       </main>
     )
   }
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <GlobalNav />
+      <GlobalNav backHref="/explore" backLabel="Bands" />
 
       <div className="max-w-2xl mx-auto px-6 py-16">
         <div className="mb-10">
