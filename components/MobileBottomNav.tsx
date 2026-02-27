@@ -30,7 +30,9 @@ export default function MobileBottomNav() {
           never over scrolling content. */}
       <div
         className="fixed inset-x-0 bottom-0 z-40 md:hidden bg-black pointer-events-none"
-        style={{ height: 'max(3.5rem, calc(3.5rem + env(safe-area-inset-bottom, 0px)))' }}
+        // Deliberately over-extended for debugging: cover ~half the screen height
+        // so absolutely no page content can be seen beneath the mobile nav.
+        style={{ height: '50vh' }}
         aria-hidden
       />
 
