@@ -95,7 +95,7 @@ export default function ReviewPageClient({ id }: { id: string }) {
         <div className="flex gap-5 mb-10">
           <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
             {release?.cover_url
-              ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
+              ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-contain" />
               : <span className="text-3xl opacity-20">🎵</span>}
           </div>
           <div className="min-w-0">

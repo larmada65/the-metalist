@@ -402,9 +402,9 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
             <div className="mt-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
               {latestReleases.map(release => (
                 <Link key={release.id} href={`/releases/${release.id}`} className="group">
-                  <div className="aspect-square bg-zinc-900 overflow-hidden border border-zinc-800 group-hover:border-zinc-700 group-hover:bg-zinc-900 transition-colors mb-2.5">
+                  <div className="aspect-square bg-zinc-900 overflow-hidden border border-zinc-800 group-hover:border-zinc-700 group-hover:bg-zinc-900 transition-colors mb-2.5 flex items-center justify-center">
                     {release.cover_url
-                      ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
+                      ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-contain" />
                       : <div className="w-full h-full flex items-center justify-center opacity-10 text-3xl">🎵</div>}
                   </div>
                   <p className="text-xs font-black uppercase tracking-wide group-hover:text-red-500 transition-colors truncate leading-tight">
@@ -437,9 +437,9 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
             <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-5">
               {topReleases.map(release => (
                 <Link key={release.id} href={`/releases/${release.id}`} className="group">
-                  <div className="aspect-square bg-zinc-900 overflow-hidden border border-zinc-800 group-hover:border-zinc-700 group-hover:bg-zinc-900 transition-colors mb-3">
+                  <div className="aspect-square bg-zinc-900 overflow-hidden border border-zinc-800 group-hover:border-zinc-700 group-hover:bg-zinc-900 transition-colors mb-3 flex items-center justify-center">
                     {release.cover_url
-                      ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
+                      ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-contain" />
                       : <div className="w-full h-full flex items-center justify-center opacity-10 text-3xl">🎵</div>}
                   </div>
                   <div className="flex gap-2.5 items-start">
@@ -538,7 +538,7 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {review.release_cover
-                        ? <img src={review.release_cover} alt={review.release_title} className="w-full h-full object-cover" />
+                        ? <img src={review.release_cover} alt={review.release_title} className="w-full h-full object-contain" />
                         : <span className="text-xl opacity-20">🎵</span>}
                     </div>
                     <div className="min-w-0">

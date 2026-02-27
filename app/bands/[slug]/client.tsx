@@ -822,9 +822,9 @@ export default function BandPageClient({ slug }: { slug: string }) {
                         }
                       }}
                       className="w-full flex items-center gap-4 p-4 hover:bg-zinc-950 transition-colors text-left">
-                      <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
+                      <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                         {release.cover_url
-                          ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
+                          ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-contain" />
                           : <div className="w-full h-full flex items-center justify-center text-2xl">🎵</div>
                         }
                       </div>

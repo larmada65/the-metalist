@@ -1129,9 +1129,9 @@ export default function MemberProfileClient({ username }: { username: string }) 
               {userReviews.map(r => (
                 <Link key={r.id} href={`/reviews/${r.id}`}
                   className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:border-zinc-700 transition-colors group">
-                  <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                     {r.cover_url
-                      ? <img src={r.cover_url} alt={r.release_title} className="w-full h-full object-cover" />
+                      ? <img src={r.cover_url} alt={r.release_title} className="w-full h-full object-contain" />
                       : <span className="text-xl opacity-20">🎵</span>}
                   </div>
                   <div className="flex-1 min-w-0">

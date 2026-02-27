@@ -133,10 +133,10 @@ export default function ReleasesClient({ releases, genres }: Props) {
                 className="border border-zinc-800 rounded-lg overflow-hidden hover:border-zinc-700 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/60 transition-all group flex flex-col">
 
                 {/* Cover */}
-                <div className="aspect-square bg-zinc-900 overflow-hidden relative">
+                <div className="aspect-square bg-zinc-900 overflow-hidden relative flex items-center justify-center">
                   {release.cover_url
                     ? <img src={release.cover_url} alt={release.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        className="w-full h-full object-contain" />
                     : <div className="w-full h-full flex items-center justify-center text-4xl">🎵</div>
                   }
                   {release.avgRating !== null && (

@@ -112,6 +112,7 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
   const [activeTrack, setActiveTrack] = useState<string | null>(null)
   const [relatedReleases, setRelatedReleases] = useState<RelatedRelease[]>([])
   const [lyricsTrack, setLyricsTrack] = useState<Track | null>(null)
+  const [coverZoomOpen, setCoverZoomOpen] = useState(false)
   const { setTrackAndPlay, currentTrack } = useAudioPlayer()
 
   // Rating input
@@ -270,8 +271,8 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
       <GlobalNav backHref="/explore" backLabel="Back" />
       <div className="max-w-4xl mx-auto px-6 py-10 animate-pulse">
         <div className="flex flex-col md:flex-row gap-8 mb-12">
-          <div className="md:w-52 md:shrink-0">
-            <div className="w-48 h-48 md:w-full md:aspect-square rounded-xl bg-zinc-900 mx-auto md:mx-0" />
+        <div className="md:w-52 md:shrink-0">
+            <div className="w-48 h-48 md:w-full md:aspect-square bg-zinc-900 mx-auto md:mx-0" />
             <div className="mt-5 space-y-2">
               <div className="h-8 bg-zinc-900 rounded w-24" />
               <div className="h-1.5 bg-zinc-900 rounded-full" />
@@ -321,11 +322,22 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
 
           {/* Sticky left: cover + aggregate rating */}
           <div className="md:sticky md:top-4 md:self-start md:w-52 md:shrink-0">
-            <div className="w-48 h-48 md:w-full md:aspect-square bg-zinc-900 border border-zinc-800 overflow-hidden mx-auto md:mx-0">
-              {release.cover_url
-                ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-5xl">🎵</div>
-              }
+            <div className="w-48 h-48 md:w-full md:aspect-square bg-zinc-900 border border-zinc-800 overflow-hidden mx-auto md:mx-0 flex items-center justify-center">
+              {release.cover_url ? (
+                <button
+                  type="button"
+                  onClick={() => setCoverZoomOpen(true)}
+                  className="group w-full h-full flex items-center justify-center cursor-zoom-in"
+                >
+                  <img
+                    src={release.cover_url}
+                    alt={release.title}
+                    className="w-full h-full object-contain"
+                  />
+                </button>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-5xl">🎵</div>
+              )}
             </div>
 
             {/* Aggregate rating + VU meter */}
@@ -706,6 +718,35 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
             </div>
             <div className="overflow-y-auto max-h-[calc(80vh-52px)] p-4">
               <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed">{lyricsTrack.lyrics}</pre>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {coverZoomOpen && release.cover_url && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90"
+          onClick={() => setCoverZoomOpen(false)}
+        >
+          <div
+            className="relative max-w-3xl w-full max-h-[90vh] border border-zinc-800 bg-black shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setCoverZoomOpen(false)}
+              className="absolute top-3 right-3 z-10 text-zinc-400 hover:text-white bg-black/60 rounded-full p-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="w-full h-full flex items-center justify-center p-4">
+              <img
+                src={release.cover_url}
+                alt={release.title}
+                className="max-w-full max-h-[80vh] object-contain"
+              />
             </div>
           </div>
         </div>

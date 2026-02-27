@@ -1373,7 +1373,7 @@ export default function ManageBand() {
                   <div key={release.id} className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
                     <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {release.cover_url
-                        ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-cover" />
+                        ? <img src={release.cover_url} alt={release.title} className="w-full h-full object-contain" />
                         : <span className="text-xl">🎵</span>}
                     </div>
                     <div className="flex-1">

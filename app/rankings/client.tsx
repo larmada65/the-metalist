@@ -154,7 +154,7 @@ export default function RankingsClient({ genres, allRated, allFollowed, allActiv
                     <RankBadge rank={i + 1} />
                     <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
                       {rel.cover_url
-                        ? <img src={rel.cover_url} alt={rel.title} className="w-full h-full object-cover" />
+                        ? <img src={rel.cover_url} alt={rel.title} className="w-full h-full object-contain" />
                         : <span className="text-lg opacity-20">🎵</span>}
                     </div>
                     <div className="flex-1 min-w-0">
