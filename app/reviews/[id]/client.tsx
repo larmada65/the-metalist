@@ -70,6 +70,21 @@ export default function ReviewPageClient({ id }: { id: string }) {
   const band = review.releases?.bands
   const release = review.releases
 
+  const reportHref = (() => {
+    const base = 'mailto:the-metalist@outlook.com'
+    const subject = encodeURIComponent(`Report review: ${review.title}`)
+    if (typeof window !== 'undefined') {
+      const body = encodeURIComponent(
+        `I want to report this review.\n\nURL: ${window.location.href}\n\nReason (please describe what is wrong):\n`
+      )
+      return `${base}?subject=${subject}&body=${body}`
+    }
+    const body = encodeURIComponent(
+      'I want to report this review.\n\nReason (please describe what is wrong):\n'
+    )
+    return `${base}?subject=${subject}&body=${body}`
+  })()
+
   return (
     <main className="min-h-screen bg-black text-white">
       <GlobalNav backHref="/reviews" backLabel="Reviews" />
@@ -141,6 +156,16 @@ export default function ReviewPageClient({ id }: { id: string }) {
             {review.content}
           </div>
         </article>
+
+        {/* Report link */}
+        <div className="mt-4 flex justify-end">
+          <a
+            href={reportHref}
+            className="text-xs text-zinc-700 hover:text-red-400 underline underline-offset-4"
+          >
+            Report this review
+          </a>
+        </div>
 
         {/* Back to band */}
         {band && (

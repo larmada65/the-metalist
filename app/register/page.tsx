@@ -54,14 +54,21 @@ export default function Register() {
     }
     setLoading(true)
 
-    const { data: existing } = await supabase
+    // Case-insensitive username uniqueness check
+    const { data: existing, error: existingError } = await supabase
       .from('profiles')
       .select('id')
-      .eq('username', username)
-      .single()
+      .ilike('username', username)
+      .maybeSingle()
+
+    if (existingError) {
+      setError('Could not check username availability. Please try again.')
+      setLoading(false)
+      return
+    }
 
     if (existing) {
-      setError('Username already taken.')
+      setError('Username already taken. Try a different handle or add a number.');
       setLoading(false)
       return
     }
@@ -69,7 +76,12 @@ export default function Register() {
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
 
     if (signUpError) {
-      setError(signUpError.message)
+      // Friendlier message when the email is already in use
+      if (signUpError.message.toLowerCase().includes('user already registered')) {
+        setError('There is already an account with that email. Try logging in instead.')
+      } else {
+        setError(signUpError.message)
+      }
       setLoading(false)
       return
     }

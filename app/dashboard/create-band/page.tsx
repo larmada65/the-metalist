@@ -115,6 +115,25 @@ export default function CreateBand() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
+    // Prevent duplicate band names (case-insensitive)
+    const { data: existingBand, error: existingError } = await supabase
+      .from('bands')
+      .select('id')
+      .ilike('name', bandName.trim())
+      .maybeSingle()
+
+    if (existingError) {
+      setError('Could not check band name uniqueness. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    if (existingBand) {
+      setError('A band with that name already exists on The Metalist. Please choose a slightly different name (or add a country / city).')
+      setLoading(false)
+      return
+    }
+
     // Upload logo
     const fileExt = logoFile.name.split('.').pop()
     const fileName = `${user.id}-${Date.now()}.${fileExt}`

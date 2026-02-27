@@ -559,6 +559,21 @@ export default function BandPageClient({ slug }: { slug: string }) {
     </main>
   )
 
+  const reportHref = (() => {
+    const base = 'mailto:the-metalist@outlook.com'
+    const subject = encodeURIComponent(`Report band: ${band.name}`)
+    if (typeof window !== 'undefined') {
+      const body = encodeURIComponent(
+        `I want to report this band.\n\nURL: ${window.location.href}\n\nReason (please describe what is wrong):\n`
+      )
+      return `${base}?subject=${subject}&body=${body}`
+    }
+    const body = encodeURIComponent(
+      'I want to report this band.\n\nReason (please describe what is wrong):\n'
+    )
+    return `${base}?subject=${subject}&body=${body}`
+  })()
+
   return (
     <main className="min-h-screen bg-black text-white">
       <GlobalNav backHref="/explore" backLabel="Back to bands" />
@@ -1289,6 +1304,16 @@ export default function BandPageClient({ slug }: { slug: string }) {
             </section>
           )}
         </div>
+      </div>
+
+      {/* Soft-report link for moderation */}
+      <div className="max-w-5xl mx-auto px-6 pb-8 flex justify-end">
+        <a
+          href={reportHref}
+          className="text-xs text-zinc-700 hover:text-red-400 underline underline-offset-4"
+        >
+          Report this band
+        </a>
       </div>
 
       {lyricsTrack && (

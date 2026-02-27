@@ -142,6 +142,28 @@ export default function ProfileSettings() {
       setAvatarFile(null)
     }
 
+    // Enforce case-insensitive username uniqueness when changing it
+    if (username.trim()) {
+      const { data: existingUser, error: existingErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('username', username.trim())
+        .neq('id', userId)
+        .maybeSingle()
+
+      if (existingErr) {
+        setProfileError('Could not check username availability. Please try again.')
+        setSavingProfile(false)
+        return
+      }
+
+      if (existingUser) {
+        setProfileError('That username is already taken. Try a different handle or add a number.')
+        setSavingProfile(false)
+        return
+      }
+    }
+
     const { error } = await supabase
       .from('profiles')
       .update({

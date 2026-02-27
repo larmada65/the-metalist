@@ -34,6 +34,33 @@ export default function AboutPage() {
             </p>
           </header>
 
+          <section className="space-y-3">
+            <h2 className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              Community Guidelines
+            </h2>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              The Metalist is meant to be a safe, respectful place for bands and fans.
+              By using the site you agree to:
+            </p>
+            <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1.5">
+              <li>Only upload music, artwork, and other content you have the rights to share.</li>
+              <li>Avoid hate speech, harassment, or targeted abuse of any person or group.</li>
+              <li>Respect other people&apos;s time and attention — no spam or irrelevant promotion.</li>
+              <li>Understand that we may remove content or accounts that break these rules or put others at risk.</li>
+            </ul>
+            <p className="text-xs text-zinc-600">
+              If you see something that feels off, you can use the report links on band and review pages
+              or email{" "}
+              <a
+                href="mailto:the-metalist@outlook.com"
+                className="text-red-400 hover:text-red-300 underline underline-offset-4"
+              >
+                the-metalist@outlook.com
+              </a>
+              .
+            </p>
+          </section>
+
           <div className="grid md:grid-cols-3 gap-6">
             <Link
               href="/privacy"
