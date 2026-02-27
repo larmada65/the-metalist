@@ -456,7 +456,9 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
                   Tracklist ({tracks.length})
                 </h2>
                 <p className="text-[11px] text-zinc-600 mb-3">
-                  Click a track to play hosted MP3s in the bottom player, or open its YouTube / SoundCloud embed.
+                  {currentUser
+                    ? 'Click a track to play hosted MP3s in the bottom player, or open its YouTube / SoundCloud embed.'
+                    : 'Login to play hosted MP3s in the bottom player. You can still open YouTube / SoundCloud embeds.'}
                 </p>
                 <div className="border border-zinc-800 rounded-xl overflow-hidden">
                   {tracks.map(track => {
@@ -467,6 +469,10 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
                     const handleClick = () => {
                       const nextActive = isActive ? null : track.id
                       setActiveTrack(nextActive)
+
+                      if (!currentUser && hasHostedAudio) {
+                        return
+                      }
 
                       if (hasHostedAudio && track.audio_path) {
                         const { data } = supabase.storage
@@ -525,7 +531,7 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
                               <span className={`text-sm font-medium ${isActive ? 'text-red-400' : 'text-zinc-200'}`}>
                                 {track.title}
                               </span>
-                              {track.lyrics && (
+                              {currentUser && track.lyrics && (
                                 <button
                                   type="button"
                                   onClick={e => { e.stopPropagation(); setLyricsTrack(track) }}

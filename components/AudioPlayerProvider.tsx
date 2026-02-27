@@ -281,6 +281,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
               </div>
             </div>
           </div>
+          <div className="h-4 bg-black md:hidden" />
         </div>
       )}
     </AudioPlayerContext.Provider>

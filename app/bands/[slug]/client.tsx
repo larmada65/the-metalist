@@ -864,6 +864,10 @@ export default function BandPageClient({ slug }: { slug: string }) {
                             const nextActive = isActive ? null : { releaseId: release.id, trackId: track.id }
                             setActiveTrack(nextActive)
 
+                            if (!currentUser && hasHostedAudio) {
+                              return
+                            }
+
                             if (hasHostedAudio && track.audio_path) {
                               const { data } = supabase.storage
                                 .from('band-logos')
@@ -921,7 +925,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
                                     <span className={`text-sm ${isActive ? 'text-red-400' : 'text-zinc-300'}`}>
                                       {track.title}
                                     </span>
-                                    {track.lyrics && (
+                                    {currentUser && track.lyrics && (
                                       <button
                                         type="button"
                                         onClick={e => { e.stopPropagation(); setLyricsTrack(track) }}

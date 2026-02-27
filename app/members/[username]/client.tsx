@@ -985,12 +985,15 @@ export default function MemberProfileClient({ username }: { username: string }) 
                   <div key={d.id} className="border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
                     <button
                       type="button"
-                      onClick={() => publicUrl && setTrackAndPlay({
-                        id: d.id,
-                        title: d.title || 'Demo',
-                        bandName: displayName,
-                        src: publicUrl,
-                      })}
+                      onClick={() => {
+                        if (!currentUser || !publicUrl) return
+                        setTrackAndPlay({
+                          id: d.id,
+                          title: d.title || 'Demo',
+                          bandName: displayName,
+                          src: publicUrl,
+                        })
+                      }}
                       className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 hover:border-red-600 transition-colors"
                     >
                       <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
