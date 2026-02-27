@@ -317,6 +317,12 @@ export default function EditRelease() {
         })
       }
 
+      // Ensure the release is published after a successful save so it is visible on the public site.
+      await supabase
+        .from('releases')
+        .update({ published: true })
+        .eq('id', id)
+
       setSuccess(true)
       setTimeout(() => router.push(`/releases/${id}`), 1200)
     } finally {
