@@ -1,5 +1,10 @@
 export type SubscriptionTier = 'free' | 'bedroom' | 'pro' | 'pro_plus';
 
+// Temporary feature flag: force everyone to at least a given tier.
+// Set NEXT_PUBLIC_FORCE_TIER to 'pro' or 'pro_plus' to treat all users
+// as that tier in the UI. Clear it to return to normal behaviour.
+const FORCED_TIER = (process.env.NEXT_PUBLIC_FORCE_TIER ?? '') as SubscriptionTier | '';
+
 /** Bedroom Musician: $3/month, 1 demo per week */
 export const BEDROOM_MONTHLY_PRICE_DOLLARS = 3;
 /** Pro: $5/month, replaces old Pro */
@@ -115,6 +120,9 @@ export function canUploadDemo(tier: SubscriptionTier, demosUploadedThisMonth: nu
 
 /** Normalize Stripe tier string to SubscriptionTier */
 export function normalizeTier(tier: string | undefined): SubscriptionTier {
+  if (FORCED_TIER === 'pro' || FORCED_TIER === 'pro_plus' || FORCED_TIER === 'bedroom') {
+    return FORCED_TIER
+  }
   if (!tier || tier === 'free') return 'free'
   if (tier === 'bedroom' || tier === 'bedroom_musician') return 'bedroom'
   if (tier === 'pro_plus' || tier === 'proplus') return 'pro_plus'
