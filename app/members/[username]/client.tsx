@@ -138,11 +138,25 @@ export default function MemberProfileClient({ username }: { username: string }) 
       const { data: { user } } = await supabase.auth.getUser()
       if (user) setCurrentUser(user.id)
 
-      const { data: profileData } = await supabase
+      const selectCols = 'id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links'
+
+      let profileData = (await supabase
         .from('profiles')
-        .select('id, username, first_name, last_name, created_at, bio, instagram_url, twitter_url, website_url, is_producer, is_sound_engineer, is_musician, is_fan, avatar_url, musician_instruments, musician_level, musician_link, production_level, studio_gear, producer_software, producer_guitar_plugins, producer_drum_plugins, producer_bass_plugins, producer_genre_ids, producer_portfolio_links')
-        .ilike('username', username)
-        .maybeSingle()
+        .select(selectCols)
+        .ilike('username', username.trim())
+        .maybeSingle()).data
+
+      // Fallback: if viewing own profile, fetch by id (RLS may allow id-based read but block username-based)
+      if (!profileData && user) {
+        const { data: ownProfile } = await supabase
+          .from('profiles')
+          .select(selectCols)
+          .eq('id', user.id)
+          .single()
+        if (ownProfile && ownProfile.username?.toLowerCase() === username.trim().toLowerCase()) {
+          profileData = ownProfile
+        }
+      }
 
       if (!profileData) { setNotFound(true); setLoading(false); return }
       setProfile(profileData)
