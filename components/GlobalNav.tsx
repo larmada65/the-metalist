@@ -225,7 +225,7 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
 
   return (
     <>
-      <nav className="border-b border-zinc-800 px-4 md:px-6 py-3 flex items-center gap-3 md:gap-6 relative z-40 bg-black">
+      <nav className="sticky top-0 border-b border-zinc-800 px-4 md:px-6 py-3 flex items-center gap-3 md:gap-6 z-40 bg-black/95 backdrop-blur">
         {/* Logo + back */}
         <div className="flex flex-col shrink-0">
           <Link href="/" className="text-2xl font-display tracking-widest uppercase text-red-500 leading-tight">
