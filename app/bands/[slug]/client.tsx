@@ -481,7 +481,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
         .select('id, title, content, rating, created_at, user_id, profiles(username)')
         .single()
       if (error) {
-        setReviewError(prev => ({ ...prev, [releaseId]: error.message }))
+        setReviewError(prev => ({ ...prev, [releaseId]: 'Could not save review. Please try again.' }))
         setSubmittingReview(null)
         return
       }
@@ -495,7 +495,7 @@ export default function BandPageClient({ slug }: { slug: string }) {
         .select('id, title, content, rating, created_at, user_id, profiles(username)')
         .single()
       if (error) {
-        setReviewError(prev => ({ ...prev, [releaseId]: error.message }))
+        setReviewError(prev => ({ ...prev, [releaseId]: 'Could not submit review. Please try again.' }))
         setSubmittingReview(null)
         return
       }

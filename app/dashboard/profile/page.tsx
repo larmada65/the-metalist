@@ -315,7 +315,7 @@ export default function ProfileSettings() {
       .eq('id', userId)
 
     if (error) {
-      setProfileError(error.code === '23505' ? 'That username is already taken.' : error.message)
+      setProfileError(error.code === '23505' ? 'That username is already taken.' : 'Something went wrong. Please try again.')
     } else {
       setProfileSuccess(true)
       setTimeout(() => setProfileSuccess(false), 3000)
@@ -351,7 +351,7 @@ export default function ProfileSettings() {
     setSavingPassword(true)
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) {
-      setPasswordError(error.message)
+      setPasswordError(error.message?.includes('password') ? 'Password must be at least 6 characters.' : 'Something went wrong. Please try again.')
     } else {
       setNewPassword('')
       setConfirmPassword('')

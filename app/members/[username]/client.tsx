@@ -546,7 +546,7 @@ export default function MemberProfileClient({ username }: { username: string }) 
     })
 
     if (error) {
-      setInviteError(error.message)
+      setInviteError('Could not send invitation. Please try again.')
       setInviteLoading(false)
       return
     }

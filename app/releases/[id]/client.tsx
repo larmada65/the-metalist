@@ -257,7 +257,7 @@ export default function ReleaseClient({ releaseId }: { releaseId: string }) {
         .insert({ release_id: releaseId, user_id: currentUser, title, content, rating: parsedRating })
         .select('id, title, content, rating, created_at, user_id, profiles(username)')
         .single()
-      if (error) { setReviewError(error.message); setSubmittingReview(false); return }
+      if (error) { setReviewError('Could not submit review. Please try again.'); setSubmittingReview(false); return }
       if (data) setReviews(prev => [data as any, ...prev])
     }
 

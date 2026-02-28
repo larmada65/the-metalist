@@ -26,6 +26,8 @@ export default function Register() {
   const [isMusician, setIsMusician] = useState(false)
   const [isFan, setIsFan] = useState(false)
   const [roleConfirmRole, setRoleConfirmRole] = useState<'musician' | 'producer' | 'engineer' | 'fan' | null>(null)
+  const [inviteCode, setInviteCode] = useState('')
+  const [inviteRequired, setInviteRequired] = useState<boolean | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -33,6 +35,13 @@ export default function Register() {
     supabase.from('genres_list').select('id, name').order('name').then(({ data }) => {
       if (data) setAllGenres(data)
     })
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/invite-required')
+      .then(res => res.json())
+      .then(data => setInviteRequired(data?.required === true))
+      .catch(() => setInviteRequired(false))
   }, [])
 
   const toggleGenre = (id: number) =>
@@ -58,6 +67,10 @@ export default function Register() {
 
   const handleRegister = async () => {
     setError('')
+    if (inviteRequired && !inviteCode.trim()) {
+      setError('An invite code is required to join.')
+      return
+    }
     if (!firstName || !lastName || !username || !email || !password || !confirmPassword) {
       setError('All fields are required.'); return
     }
@@ -71,13 +84,34 @@ export default function Register() {
       setError('Please choose at least one role: Producer, Sound Engineer, Musician, or Fan.')
       return
     }
+    const cleanUsername = username.trim().toLowerCase()
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      setError('Username can only use letters, numbers, and underscores.')
+      return
+    }
+    if (cleanUsername.length > 30) {
+      setError('Username must be 30 characters or fewer.')
+      return
+    }
+    if (inviteRequired) {
+      const validateRes = await fetch('/api/validate-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: inviteCode.trim() }),
+      })
+      const validateData = await validateRes.json().catch(() => ({}))
+      if (!validateData?.valid) {
+        setError('Invalid invite code.')
+        return
+      }
+    }
     setLoading(true)
 
     // Case-insensitive username uniqueness check
     const { data: existing, error: existingError } = await supabase
       .from('profiles')
       .select('id')
-      .ilike('username', username)
+      .ilike('username', cleanUsername)
       .maybeSingle()
 
     if (existingError) {
@@ -95,11 +129,15 @@ export default function Register() {
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
 
     if (signUpError) {
-      // Friendlier message when the email is already in use
-      if (signUpError.message.toLowerCase().includes('user already registered')) {
+      const msg = signUpError.message.toLowerCase()
+      if (msg.includes('user already registered') || msg.includes('already been registered')) {
         setError('There is already an account with that email. Try logging in instead.')
+      } else if (msg.includes('password') || msg.includes('weak')) {
+        setError('Password must be at least 6 characters.')
+      } else if (msg.includes('email') || msg.includes('invalid')) {
+        setError('Please enter a valid email address.')
       } else {
-        setError(signUpError.message)
+        setError('Something went wrong. Please try again or use a different email.')
       }
       setLoading(false)
       return
@@ -109,7 +147,7 @@ export default function Register() {
       const primaryProfile = isProducer ? 'producer' : isSoundEngineer ? 'engineer' : isMusician ? 'musician' : isFan ? 'fan' : null
       const profilePayload = {
         id: data.user.id,
-        username,
+        username: cleanUsername,
         email,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -194,6 +232,14 @@ export default function Register() {
           )}
 
           <div className="flex flex-col gap-4">
+            {inviteRequired === true && (
+              <div>
+                <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">Invite code</label>
+                <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)}
+                  className={inputClass} placeholder="Enter the code you received" autoComplete="off" />
+                <p className="text-xs text-zinc-600 mt-1">Registration is invite-only. Ask an existing member or the team for a code.</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">First Name</label>
@@ -210,8 +256,9 @@ export default function Register() {
             <div>
               <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">Username</label>
               <input type="text" value={username}
-                onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, '_'))}
-                className={inputClass} placeholder="your_username" />
+                onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                className={inputClass} placeholder="your_username" maxLength={30} />
+              <p className="text-xs text-zinc-600 mt-1">Letters, numbers, underscores only (max 30)</p>
               <p className="text-xs text-zinc-600 mt-1">This is your public handle on the platform.</p>
             </div>
 

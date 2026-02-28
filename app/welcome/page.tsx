@@ -78,8 +78,17 @@ export default function WelcomePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-zinc-600 animate-pulse">Loading...</p>
+      <main className="min-h-screen bg-black text-white">
+        <div className="max-w-lg mx-auto px-6 py-20 flex flex-col items-center">
+          <div className="h-10 w-64 bg-zinc-900 rounded-lg animate-pulse mb-6" />
+          <div className="h-4 w-48 bg-zinc-900 rounded animate-pulse mb-12" />
+          <div className="w-full border border-zinc-800 rounded-xl p-6 space-y-4">
+            <div className="h-3 w-32 bg-zinc-800 rounded animate-pulse" />
+            <div className="h-12 bg-zinc-900 rounded-lg animate-pulse" />
+            <div className="h-12 bg-zinc-900 rounded-lg animate-pulse" />
+            <div className="h-12 bg-zinc-900 rounded-lg animate-pulse" />
+          </div>
+        </div>
       </main>
     )
   }

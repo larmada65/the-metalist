@@ -440,7 +440,7 @@ export default function ManageBand() {
       .ilike('username', `%${term}%`)
       .limit(10)
     if (error) {
-      setMemberSearchError(error.message)
+      setMemberSearchError('Search failed. Please try again.')
       setMemberSearchResults([])
     } else {
       setMemberSearchResults(data || [])
@@ -479,7 +479,7 @@ export default function ManageBand() {
     })
 
     if (error) {
-      setMemberSearchError(error.message)
+      setMemberSearchError('Could not send invite. Please try again.')
       return
     }
 
