@@ -232,14 +232,20 @@ export default function Register() {
           )}
 
           <div className="flex flex-col gap-4">
-            {inviteRequired === true && (
-              <div>
-                <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">Invite code</label>
-                <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)}
-                  className={inputClass} placeholder="Enter the code you received" autoComplete="off" />
+            <div>
+              <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">
+                Invite code {inviteRequired === true && <span className="text-red-400 normal-case">(required)</span>}
+              </label>
+              <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)}
+                className={inputClass}
+                placeholder={inviteRequired === true ? 'Enter the code you received' : 'Enter code if you have one'}
+                autoComplete="off" />
+              {inviteRequired === true ? (
                 <p className="text-xs text-zinc-600 mt-1">Registration is invite-only. Ask an existing member or the team for a code.</p>
-              </div>
-            )}
+              ) : (
+                <p className="text-xs text-zinc-600 mt-1">If signup is invite-only, you’ll need a code from an existing member.</p>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">First Name</label>
