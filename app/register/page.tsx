@@ -26,8 +26,6 @@ export default function Register() {
   const [isMusician, setIsMusician] = useState(false)
   const [isFan, setIsFan] = useState(false)
   const [roleConfirmRole, setRoleConfirmRole] = useState<'musician' | 'producer' | 'engineer' | 'fan' | null>(null)
-  const [inviteCode, setInviteCode] = useState('')
-  const [inviteRequired, setInviteRequired] = useState<boolean | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -35,13 +33,6 @@ export default function Register() {
     supabase.from('genres_list').select('id, name').order('name').then(({ data }) => {
       if (data) setAllGenres(data)
     })
-  }, [])
-
-  useEffect(() => {
-    fetch('/api/invite-required')
-      .then(res => res.json())
-      .then(data => setInviteRequired(data?.required === true))
-      .catch(() => setInviteRequired(false))
   }, [])
 
   const toggleGenre = (id: number) =>
@@ -67,10 +58,6 @@ export default function Register() {
 
   const handleRegister = async () => {
     setError('')
-    if (inviteRequired && !inviteCode.trim()) {
-      setError('An invite code is required to join.')
-      return
-    }
     if (!firstName || !lastName || !username || !email || !password || !confirmPassword) {
       setError('All fields are required.'); return
     }
@@ -92,18 +79,6 @@ export default function Register() {
     if (cleanUsername.length > 30) {
       setError('Username must be 30 characters or fewer.')
       return
-    }
-    if (inviteRequired) {
-      const validateRes = await fetch('/api/validate-invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: inviteCode.trim() }),
-      })
-      const validateData = await validateRes.json().catch(() => ({}))
-      if (!validateData?.valid) {
-        setError('Invalid invite code.')
-        return
-      }
     }
     setLoading(true)
 
@@ -232,20 +207,6 @@ export default function Register() {
           )}
 
           <div className="flex flex-col gap-4">
-            <div>
-              <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">
-                Invite code {inviteRequired === true && <span className="text-red-400 normal-case">(required)</span>}
-              </label>
-              <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)}
-                className={inputClass}
-                placeholder={inviteRequired === true ? 'Enter the code you received' : 'Enter code if you have one'}
-                autoComplete="off" />
-              {inviteRequired === true ? (
-                <p className="text-xs text-zinc-600 mt-1">Registration is invite-only. Ask an existing member or the team for a code.</p>
-              ) : (
-                <p className="text-xs text-zinc-600 mt-1">If signup is invite-only, you’ll need a code from an existing member.</p>
-              )}
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">First Name</label>
