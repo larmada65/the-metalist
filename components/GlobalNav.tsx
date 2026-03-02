@@ -412,7 +412,7 @@ export default function GlobalNav({ backHref, backLabel, username, onLogout, cur
           <div className="absolute inset-0 bg-black/80" onClick={() => setMobileOpen(false)} />
 
           {/* Drawer */}
-          <div className="relative ml-auto w-72 max-w-full h-full bg-zinc-950 border-l border-zinc-800 flex flex-col overflow-y-auto">
+          <div className="relative ml-auto w-72 max-w-full h-full bg-zinc-950 border-l border-zinc-800 flex flex-col overflow-y-auto pb-24">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
               <span className="text-xl font-display tracking-widest uppercase text-red-500">The Metalist</span>
