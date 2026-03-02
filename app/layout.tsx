@@ -6,7 +6,6 @@ import "./globals.css";
 import { ToastProvider } from "../components/Toast";
 import { AudioPlayerProvider } from "../components/AudioPlayerProvider";
 import { AuthProvider } from "../components/AuthProvider";
-import MobileBottomNav from "../components/MobileBottomNav";
 import { createClient } from "../lib/supabase-server";
 
 const geistSans = Geist({
@@ -46,8 +45,7 @@ export default async function RootLayout({
         <AuthProvider initialUser={initialUser}>
           <ToastProvider>
             <AudioPlayerProvider>
-              {/* Extra bottom padding for mobile nav + global audio player (player ~80px tall) */}
-              <div className="pb-28 md:pb-24 flex flex-col min-h-screen">
+              <div className="pb-20 md:pb-12 flex flex-col min-h-screen">
                 {children}
                 <footer className="mt-auto border-t border-zinc-900/70 px-4 md:px-8 py-6 text-[11px] text-zinc-500 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <p className="tracking-widest uppercase">
@@ -81,7 +79,6 @@ export default async function RootLayout({
                   </div>
                 </footer>
               </div>
-              <MobileBottomNav />
             </AudioPlayerProvider>
           </ToastProvider>
         </AuthProvider>
