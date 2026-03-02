@@ -25,25 +25,27 @@ export default function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 z-50 md:hidden border-t border-zinc-800 flex justify-around items-center py-2 bg-black"
-      style={{ bottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="fixed inset-x-0 bottom-0 z-50 md:hidden border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-sm shadow-[0_-8px_24px_rgba(0,0,0,0.8)]"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)' }}
       aria-label="Mobile navigation"
     >
-      {links.map(({ href, label, icon }) => {
-        const active = pathname === href || (href !== '/' && pathname.startsWith(href))
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${active ? 'text-red-500' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-            </svg>
-            <span className="text-[10px] uppercase tracking-widest font-bold">{label}</span>
-          </Link>
-        )
-      })}
+      <div className="max-w-md mx-auto flex justify-around items-center py-2 px-2">
+        {links.map(({ href, label, icon }) => {
+          const active = pathname === href || (href !== '/' && pathname.startsWith(href))
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors ${active ? 'text-red-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+              </svg>
+              <span className="text-[10px] uppercase tracking-widest font-bold">{label}</span>
+            </Link>
+          )
+        })}
+      </div>
     </nav>
   )
 }
