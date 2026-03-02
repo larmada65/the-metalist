@@ -68,7 +68,7 @@ export default function ProdEngineersPage() {
     return (
       <main className="min-h-screen bg-black text-white">
         <GlobalNav backHref="/explore" backLabel="Bands" />
-        <div className="max-w-2xl mx-auto px-6 py-16">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
           <div className="border border-zinc-800 rounded-xl p-12 text-center">
             <p className="text-5xl mb-6">🎚</p>
             <h1 className="text-xl font-black uppercase tracking-tight text-zinc-300 mb-3">
@@ -95,7 +95,7 @@ export default function ProdEngineersPage() {
 
       <div className="max-w-2xl mx-auto px-6 py-16">
         <div className="mb-10">
-          <h1 className="text-5xl font-display uppercase tracking-tight mb-2">Prod / Engineers</h1>
+          <h1 className="text-3xl md:text-5xl font-display uppercase tracking-tight mb-2">Prod / Engineers</h1>
           <p className="text-zinc-600 text-sm">
             Find producers and sound engineers for your next recording or mix.
           </p>
@@ -114,7 +114,7 @@ export default function ProdEngineersPage() {
             ))}
           </div>
         ) : profiles.length === 0 ? (
-          <div className="border border-zinc-800 rounded-xl p-20 text-center">
+          <div className="border border-zinc-800 rounded-xl p-10 sm:p-20 text-center">
             <p className="text-5xl mb-4">🎚</p>
             <p className="text-zinc-400 font-black uppercase tracking-wide mb-2">No producers or engineers yet</p>
             <p className="text-zinc-600 text-sm">

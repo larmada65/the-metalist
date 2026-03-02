@@ -74,11 +74,11 @@ export default function MembersClient({ members, genres }: Props) {
     <main className="min-h-screen bg-black text-white">
       <GlobalNav backHref="/explore" backLabel="Bands" />
 
-      <div className="max-w-5xl mx-auto px-6 py-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
 
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-5xl font-display uppercase tracking-tight mb-2">Members</h1>
+          <h1 className="text-3xl md:text-5xl font-display uppercase tracking-tight mb-2">Members</h1>
           <p className="text-zinc-600 text-sm">
             Every metalhead on The Metalist — musicians, producers, engineers, and fans.
           </p>
@@ -88,19 +88,19 @@ export default function MembersClient({ members, genres }: Props) {
         {members.length > 0 && (
           <div className="flex flex-wrap gap-6 md:gap-10 mb-10 border-b border-zinc-800 pb-8">
             <div>
-              <p className="text-3xl font-black tabular">{members.length}</p>
+              <p className="text-2xl md:text-3xl font-black tabular">{members.length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Members</p>
             </div>
             <div>
-              <p className="text-3xl font-black tabular">{members.filter(isMusician).length}</p>
+              <p className="text-2xl md:text-3xl font-black tabular">{members.filter(isMusician).length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Musicians</p>
             </div>
             <div>
-              <p className="text-3xl font-black tabular">{members.filter(m => m.is_producer).length}</p>
+              <p className="text-2xl md:text-3xl font-black tabular">{members.filter(m => m.is_producer).length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Producers</p>
             </div>
             <div>
-              <p className="text-3xl font-black tabular">{members.filter(m => m.is_sound_engineer).length}</p>
+              <p className="text-2xl md:text-3xl font-black tabular">{members.filter(m => m.is_sound_engineer).length}</p>
               <p className="text-xs text-zinc-600 uppercase tracking-widest mt-0.5">Engineers</p>
             </div>
           </div>
@@ -137,7 +137,7 @@ export default function MembersClient({ members, genres }: Props) {
 
         {/* Grid */}
         {filtered.length === 0 ? (
-          <div className="border border-zinc-800 rounded-xl p-20 text-center">
+          <div className="border border-zinc-800 rounded-xl p-10 sm:p-20 text-center">
             <p className="text-5xl mb-4">🤘</p>
             <p className="text-zinc-600 uppercase tracking-widest text-sm">
               {members.length === 0 ? 'The pit is empty.' : 'No members match these filters. Widen the search.'}
