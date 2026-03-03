@@ -620,44 +620,14 @@ export default function HomeClient({ initialUserId, stats, genres, recentBands, 
         </section>
       )}
 
-      {/* ── Explore memberships ───────────────────────────────────────────────── */}
-      <section className="border-t border-zinc-800 px-6 py-16">
-        <div className="max-w-4xl mx-auto">
-          <h3 className="text-2xl font-display uppercase tracking-tight mb-8 text-center">
+      {/* ── Explore memberships (temporarily masked) ─────────────────────────── */}
+      <section className="border-t border-zinc-800 px-6 py-12 opacity-40 blur-[1px] pointer-events-none select-none">
+        <div className="max-w-4xl mx-auto text-center">
+          <h3 className="text-2xl font-display uppercase tracking-tight mb-4">
             Memberships <span className="text-red-500">for metal</span>
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { name: "Free", price: "$0", suffix: null, features: ["1 demo/month", "Embeds only"] },
-              { name: "Bedroom", price: "$3", suffix: "/mo", features: ["1 demo/week", "For solo artists"] },
-              { name: "Pro", price: "$5", suffix: "/mo", features: ["Hosted MP3s", "Unlimited demos"] },
-              { name: "Pro+", price: "$10", suffix: "/mo", features: ["Lyrics on tracks", "Merch link"] },
-            ].map((tier) => (
-              <Link
-                key={tier.name}
-                href="/plans"
-                className="block border border-zinc-800 rounded-xl p-5 hover:border-zinc-600 transition-colors text-left"
-              >
-                <p className="text-sm font-bold uppercase tracking-wide text-zinc-300 mb-1">{tier.name}</p>
-                <p className="text-xl font-black tabular-nums text-white mb-3">
-                  {tier.price}
-                  {tier.suffix && <span className="text-xs font-normal text-zinc-500 ml-0.5">{tier.suffix}</span>}
-                </p>
-                <ul className="text-xs text-zinc-500 space-y-1">
-                  {tier.features.map((f) => (
-                    <li key={f}>· {f}</li>
-                  ))}
-                </ul>
-              </Link>
-            ))}
-          </div>
-          <p className="text-center mt-6">
-            <Link
-              href="/plans"
-              className="text-sm text-zinc-500 hover:text-red-400 transition-colors uppercase tracking-widest"
-            >
-              View all plans →
-            </Link>
+          <p className="text-zinc-500 text-sm">
+            Paid plans are not open yet. This section will unlock when memberships launch.
           </p>
         </div>
       </section>

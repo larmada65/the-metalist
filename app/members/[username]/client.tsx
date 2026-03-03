@@ -1069,7 +1069,9 @@ export default function MemberProfileClient({ username }: { username: string }) 
 
           {showAddDemo && isOwnProfile && (
             <div className="border border-zinc-800 rounded-xl p-5 mb-6 space-y-4">
-              <p className="text-xs text-zinc-500">Upload an unfinished song (MP3) to share with producers or collaborators. Free: 1/month. Bedroom: 1/week. Pro/Pro+: unlimited.</p>
+              <p className="text-xs text-zinc-500 opacity-40 blur-[1px] select-none">
+                Upload an unfinished song (MP3) to share with producers or collaborators. Free: 1/month. Bedroom: 1/week. Pro/Pro+: unlimited.
+              </p>
               <div>
                 <label className="text-xs uppercase tracking-widest text-zinc-500 mb-2 block">Title (optional)</label>
                 <input
