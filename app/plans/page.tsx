@@ -115,7 +115,7 @@ export default async function PlansPage() {
             Membership <span className="text-red-500">for metal</span>
           </h1>
           <p className="text-zinc-400 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-            Start free. Upgrade when you're ready. Cancel anytime.
+            Start free. Paid memberships are not open yet — pricing and upgrades are coming soon.
           </p>
           {isLoggedIn && subscriptionTier !== "free" && (
             <p className="mt-3 text-sm text-zinc-600">
@@ -129,6 +129,7 @@ export default async function PlansPage() {
             const targetId = tier.id === "free" ? null : tier.id;
             const isPro = tier.id === "pro";
             const isFree = tier.id === "free";
+            const isPaid = !isFree;
 
             return (
               <div
@@ -141,6 +142,7 @@ export default async function PlansPage() {
                       ? "border-red-500/80 bg-red-950/30 ring-2 ring-red-500/30 shadow-lg shadow-red-950/30 scale-[1.02] md:scale-105 z-10"
                       : "border-zinc-800 bg-zinc-950/80 hover:border-zinc-700"
                   }
+                  ${isPaid ? " opacity-60 pointer-events-none" : ""}
                 `}
               >
                 {'popular' in tier && tier.popular && (
@@ -201,13 +203,13 @@ export default async function PlansPage() {
                     </span>
                   )
                 ) : (
-                  <UpgradeButton
-                    tier={subscriptionTier}
-                    targetTier={targetId as "bedroom" | "pro" | "pro_plus"}
-                    isLoggedIn={isLoggedIn}
-                    label={`Upgrade to ${tier.name}`}
-                    canManageSubscription={canManageSubscription}
-                  />
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full rounded-xl text-xs font-bold uppercase tracking-widest px-4 py-3 border-2 border-zinc-700 bg-zinc-900/60 text-zinc-500 cursor-default"
+                  >
+                    Coming soon
+                  </button>
                 )}
               </div>
             );
@@ -238,7 +240,7 @@ export default async function PlansPage() {
                 Upgrade when ready
               </p>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Bedroom ($3/mo) for more demos. Pro ($5/mo) for hosted releases. Pro+ ($10/mo) for lyrics and merch.
+                Paid plans will let you upload more demos and unlock hosted releases and extras. Pricing will be announced soon.
               </p>
             </div>
             <div>
